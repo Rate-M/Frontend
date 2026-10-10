@@ -43,14 +43,14 @@
     <input
       ref="fileInput"
       type="file"
-      accept="image/jpeg,image/webp"
+      accept="image/jpeg,image/png"
       multiple
       class="file-input"
       @change="onFiles"
     />
 
     <small class="hint">
-      {{ props.modelValue.length }} de {{ LIMITS.maxPhotos }} fotos · JPG o WebP · máx. {{ LIMITS.maxPhotoMB }} MB
+      {{ props.modelValue.length }} de {{ LIMITS.maxPhotos }} fotos · JPG o PNG · máx. {{ LIMITS.maxPhotoMB }} MB
     </small>
     <span v-if="localError || props.error" class="field-error" role="alert">
       {{ localError || props.error }}
@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from 'vue'
-import { LIMITS } from '../../types/profile'
+import { LIMITS, PHOTO_TYPES } from '../../types/profile'
 import type { ProfilePhoto } from '../../types/profile'
 
 const props = defineProps<{
@@ -75,7 +75,7 @@ const emit = defineEmits<{
 const fileInput = ref<HTMLInputElement | null>(null)
 const localError = ref('')
 
-const ALLOWED = ['image/jpeg', 'image/webp']
+const ALLOWED = PHOTO_TYPES
 
 const emptySlots = computed(() => {
   const addButton = props.modelValue.length < LIMITS.maxPhotos ? 1 : 0
@@ -94,7 +94,7 @@ const onFiles = (event: Event) => {
 
   for (const file of files.slice(0, room)) {
     if (!ALLOWED.includes(file.type)) {
-      localError.value = 'Solo se permiten imágenes JPG o WebP'
+      localError.value = 'Solo se permiten imágenes JPG o PNG'
       continue
     }
     if (file.size > LIMITS.maxPhotoMB * 1024 * 1024) {

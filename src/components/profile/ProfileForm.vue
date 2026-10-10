@@ -4,7 +4,7 @@
     <section class="form-section">
       <div class="section-head">
         <h2>Tus fotos</h2>
-        <p>Agrega de 1 a 6 fotos. La principal es la que veran primero.</p>
+        <p>Agrega de 1 a 6 fotos. La principal es la que verán primero.</p>
       </div>
       <PhotoUploader v-model="form.photos" :error="errors.photos" />
     </section>
@@ -79,6 +79,16 @@
       </div>
 
       <div class="field">
+        <label for="pf-zodiac">Signo zodiacal <span class="optional">(opcional)</span></label>
+        <div class="input-wrap select-wrap">
+          <select id="pf-zodiac" v-model="form.zodiac">
+            <option value="">Prefiero no decirlo</option>
+            <option v-for="opt in ZODIAC_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
         <label for="pf-bio">Biografía</label>
         <textarea
           id="pf-bio"
@@ -133,6 +143,17 @@
         <h2>Preferencias de búsqueda</h2>
         <p>Con esto te mostraremos perfiles que encajen contigo.</p>
       </div>
+
+      <fieldset class="field fieldset">
+        <legend>Lo que busco</legend>
+        <div class="choice-chips">
+          <label v-for="opt in LOOKING_FOR_OPTIONS" :key="opt.value" class="choice-chip">
+            <input v-model="form.lookingFor" type="radio" name="pf-looking-for" :value="opt.value" />
+            <span>{{ opt.label }}</span>
+          </label>
+        </div>
+        <span v-if="errors.lookingFor" class="field-error">{{ errors.lookingFor }}</span>
+      </fieldset>
 
       <fieldset class="field fieldset">
         <legend>Me interesan</legend>
@@ -203,6 +224,24 @@
       </label>
     </section>
 
+    <div v-if="!isEdit" class="terms-block">
+      <label for="pf-terms" class="checkbox-row">
+        <input
+          id="pf-terms"
+          v-model="acceptTerms"
+          type="checkbox"
+          :aria-invalid="!!errors.acceptTerms"
+          @change="validateTerms"
+        />
+        <span>
+          Acepto los
+          <a href="#" @click.prevent="showLegal = 'terms'">términos de uso</a> y el
+          <a href="#" @click.prevent="showLegal = 'privacy'">aviso de privacidad</a> de RateM
+        </span>
+      </label>
+      <span v-if="errors.acceptTerms" class="field-error" role="alert">{{ errors.acceptTerms }}</span>
+    </div>
+
     <div class="actions" :class="{ 'actions-edit': isEdit }">
       <button v-if="isEdit" type="button" class="btn-ghost" :disabled="loading" @click="emit('cancel')">
         Cancelar
@@ -211,20 +250,26 @@
         {{ submitLabel }}
       </button>
     </div>
+
+    <LegalModal :type="showLegal" @close="showLegal = null" />
   </form>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from 'vue'
 import PhotoUploader from './PhotoUploader.vue'
+import LegalModal from '../LegalModal.vue'
 import {
   GENDER_OPTIONS,
   INTERESTED_IN_OPTIONS,
+  LOOKING_FOR_OPTIONS,
+  ZODIAC_OPTIONS,
   LIMITS,
   cloneProfile,
   emptyProfile
-} from '../../types/profile'
-import type { ProfileFormData } from '../../types/profile'
+} from '../../types/profile.ts'
+import type { LegalAcceptance, ProfileFormData } from '../../types/profile.ts'
+import { LEGAL_VERSIONS } from '../../legal/versions'
 
 const props = withDefaults(
   defineProps<{
@@ -236,7 +281,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  (e: 'submit', data: ProfileFormData): void
+  (e: 'submit', data: ProfileFormData, acceptance?: LegalAcceptance): void
   (e: 'cancel'): void
 }>()
 
@@ -244,6 +289,8 @@ const isEdit = computed(() => props.mode === 'edit')
 
 const form = reactive<ProfileFormData>(cloneProfile(props.initial ?? emptyProfile()))
 const interestDraft = ref('')
+const acceptTerms = ref(false)
+const showLegal = ref<'privacy' | 'terms' | null>(null)
 
 const errors = reactive({
   photos: '',
@@ -251,7 +298,9 @@ const errors = reactive({
   birthDate: '',
   bio: '',
   interestedIn: '',
-  ageRange: ''
+  lookingFor: '',
+  ageRange: '',
+  acceptTerms: ''
 })
 
 const serialize = (d: ProfileFormData) =>
@@ -345,6 +394,23 @@ const validateAgeRange = () => {
   }
 }
 
+const validateLookingFor = () => {
+  errors.lookingFor = form.lookingFor ? '' : 'Elige una opción'
+}
+
+const validateTerms = () => {
+  if (isEdit.value) {
+    errors.acceptTerms = ''
+    return
+  }
+  errors.acceptTerms = acceptTerms.value
+    ? ''
+    : 'Debes aceptar los términos de uso y el aviso de privacidad'
+}
+
+watch(() => form.lookingFor, () => {
+  if (errors.lookingFor) validateLookingFor()
+})
 watch(() => form.photos.length, validatePhotos)
 watch(() => form.interestedIn.length, () => {
   if (errors.interestedIn) validateInterestedIn()
@@ -356,11 +422,21 @@ const handleSubmit = () => {
   validateBirthDate()
   validateBio()
   validateInterestedIn()
+  validateLookingFor()
   validateAgeRange()
+  validateTerms()
 
   if (Object.values(errors).some(Boolean)) return
 
-  emit('submit', cloneProfile(form))
+  const acceptance: LegalAcceptance | undefined = isEdit.value
+    ? undefined
+    : {
+        termsVersion: LEGAL_VERSIONS.terms,
+        privacyVersion: LEGAL_VERSIONS.privacy,
+        acceptedAt: new Date().toISOString()
+      }
+
+  emit('submit', cloneProfile(form), acceptance)
 }
 </script>
 
@@ -705,5 +781,32 @@ textarea::placeholder {
 .btn-ghost:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.terms-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rm-text-secondary);
+  cursor: pointer;
+}
+.checkbox-row input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--rm-text);
+  cursor: pointer;
+}
+.checkbox-row a {
+  font-weight: 600;
+  text-decoration: none;
 }
 </style>

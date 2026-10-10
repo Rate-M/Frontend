@@ -20,18 +20,19 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoUrl from '../assets/logo.png'
 import ProfileForm from '../components/profile/ProfileForm.vue'
-import type { ProfileFormData } from '../types/profile'
+import type { LegalAcceptance, ProfileFormData } from '../types/profile'
 
 const router = useRouter()
 const loading = ref(false)
 const formError = ref('')
 
-const handleCreate = async (data: ProfileFormData) => {
+const handleCreate = async (data: ProfileFormData, acceptance?: LegalAcceptance) => {
   formError.value = ''
   loading.value = true
 
   try {
     console.log('Perfil a crear:', data)
+    console.log('Términos y aviso aceptados:', acceptance)
 
     await new Promise((resolve) => setTimeout(resolve, 1000))
     router.push('/descubrir')
