@@ -21,11 +21,25 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user')
   }
 
+  function setVerified(value = true) {
+    if (!user.value) return
+    user.value = { ...user.value, verified: value }
+    localStorage.setItem('user', JSON.stringify(user.value))
+  }
+
+  function setEmailVerified(value = true) {
+    if (!user.value) return
+    user.value = { ...user.value, emailVerified: value }
+    localStorage.setItem('user', JSON.stringify(user.value))
+  }
+
   return {
     token,
     user,
     isAuthenticated,
     login,
-    logout
+    logout,
+    setVerified,
+    setEmailVerified
   }
 })

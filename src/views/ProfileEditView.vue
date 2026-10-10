@@ -57,6 +57,8 @@ onMounted(async () => {
       gender: 'female',
       pronouns: 'ella',
       occupation: 'Diseñadora',
+      zodiac: 'aries',
+      lookingFor: 'relationship',
       bio: 'Me gusta el café, el senderismo y los domingos de cine.',
       interests: ['Senderismo', 'Cine', 'Café'],
       photos: [

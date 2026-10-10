@@ -140,20 +140,7 @@
         </p>
       </div>
 
-      <div v-if="showLegal" class="modal-overlay" @click="showLegal = null">
-        <div class="modal" @click.stop>
-          <div class="modal-header">
-            <h2>{{ showLegal === 'privacy' ? 'Aviso de Privacidad' : 'Términos de Servicio' }}</h2>
-            <button class="close-btn" @click="showLegal = null" aria-label="Cerrar">&times;</button>
-          </div>
-          <div class="modal-content">
-            <LegalDocuments :type="showLegal" />
-          </div>
-          <div class="modal-footer">
-            <button class="btn-modal-secondary" @click="showLegal = null">Cerrar</button>
-          </div>
-        </div>
-      </div>
+      <LegalModal :type="showLegal" @close="showLegal = null" />
     </section>
   </div>
 </template>
@@ -162,7 +149,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import LegalDocuments from '../components/LegalDocuments.vue'
+import LegalModal from '../components/LegalModal.vue'
 import logoUrl from '../assets/logo.png'
 
 const router = useRouter()
@@ -230,10 +217,11 @@ const handleRegister = async () => {
       email: form.email,
       name: form.name,
       verified: false,
+      emailVerified: false,
       privacyPolicyAccepted: 'v1.0',
       consents: {}
     })
-    router.push('/verificacion')
+    router.push('/confirmar-correo')
   } catch (error) {
     console.error('Error al registrar:', error)
     formError.value = 'No pudimos crear tu cuenta. Intenta de nuevo en unos segundos.'
@@ -542,79 +530,6 @@ const registerWithGoogle = () => {
 .switch-auth a {
   font-weight: 600;
   text-decoration: none;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 18, 20, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.modal {
-  background: var(--rm-bg);
-  border-radius: 20px;
-  max-width: 600px;
-  width: 100%;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--rm-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: 22px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--rm-text-muted);
-}
-
-.modal-content {
-  padding: 20px 24px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.modal-footer {
-  padding: 16px 24px;
-  border-top: 1px solid var(--rm-border);
-  text-align: right;
-}
-
-.btn-modal-secondary {
-  padding: 10px 22px;
-  background: var(--rm-btn-secondary);
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--rm-text);
-}
-.btn-modal-secondary:hover {
-  background: #f3bdb8;
 }
 
 @media (max-width: 380px) {
