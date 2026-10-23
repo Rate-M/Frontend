@@ -8,6 +8,7 @@ import ProfileEditView from '../views/ProfileEditView.vue'
 import VerificationView from '../views/VerificationView.vue'
 import VerifyEmailView from '../views/VerifyEmailView.vue'
 import EmailConfirmedView from '../views/EmailConfirmedView.vue'
+import PublicProfileView from '../views/PublicProfileView.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -20,6 +21,7 @@ const routes = [
   { path: '/verificacion', name: 'Verification', component: VerificationView },
   { path: '/perfil/crear', name: 'ProfileCreate', component: ProfileCreateView },
   { path: '/perfil/editar', name: 'ProfileEdit', component: ProfileEditView },
+  { path: '/usuarios/:id', name: 'PublicProfile', component: PublicProfileView },
 ]
 
 const router = createRouter({
