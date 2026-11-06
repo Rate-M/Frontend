@@ -28,5 +28,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
 })
-
+/*
+router.beforeEach(verificationGuard)
+*/
 export default router
