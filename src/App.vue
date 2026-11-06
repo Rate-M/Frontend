@@ -7,6 +7,9 @@
 <script setup lang="ts">
 </script>
 
+<VerificationToast />
+<RouterView />
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap');
 
