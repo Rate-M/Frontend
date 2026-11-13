@@ -1,14 +1,17 @@
 import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import { useVerificationStore } from '../stores/verification'
-import { clearToken, getToken } from '../services/verification.service'
 
 export const LOGIN_PATH = '/login'
-export const VERIFICATION_PATH = '/verificacion'
+export const IDENTITY_PATH = '/verificacion' 
+export const STATUS_PATH = '/verificacion/estado'
 
 export async function verificationGuard(
   to: RouteLocationNormalized
 ): Promise<boolean | RouteLocationRaw> {
-  if ((to.meta.requiresAuth || to.meta.requiresVerified) && !getToken()) {
+  const auth = useAuthStore()
+
+  if ((to.meta.requiresAuth || to.meta.requiresVerified) && !auth.isAuthenticated) {
     return { path: LOGIN_PATH }
   }
 
@@ -20,15 +23,16 @@ export async function verificationGuard(
     }
 
     if (verification.error === 'unauthorized') {
-      clearToken()
+      auth.logout()
       return { path: LOGIN_PATH }
     }
 
-    if (verification.status !== 'approved') {
-      return { path: VERIFICATION_PATH }
-    }
+    if (verification.status === 'approved') return true
+
+    if (verification.status === 'idle') return { path: IDENTITY_PATH }
+
+    return { path: STATUS_PATH }
   }
 
   return true
 }
-
