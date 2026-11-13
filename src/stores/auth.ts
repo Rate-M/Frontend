@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useVerificationStore } from './verification'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('token'))
@@ -8,6 +9,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value)
 
   function login(newToken: string, userData: any) {
+    useVerificationStore().reset() 
     token.value = newToken
     user.value = userData
     localStorage.setItem('token', newToken)
@@ -15,6 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function logout() {
+    useVerificationStore().reset() 
     token.value = null
     user.value = null
     localStorage.removeItem('token')
