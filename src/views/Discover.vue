@@ -16,11 +16,31 @@
       <template v-if="current">
         <p class="counter">Perfil {{ currentIndex + 1 }} de {{ profiles.length }}</p>
 
-        <div class="stage">
-          <ProfileCard :key="current.id" :profile="current" />
+        <div class="stage" :class="{ 'leave-like': leaving === 'like', 'leave-pass': leaving === 'pass' }">
+          <ProfileCard :key="current.id" :profile="current" :stamp="leaving" />
         </div>
 
-        <button type="button" class="btn-primary" @click="next">Siguiente perfil</button>
+        <div class="actions">
+          <div class="action">
+            <button type="button" class="round-btn pass-btn" :disabled="!!leaving" aria-label="Pasar" @click="act('pass')">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+            <span>Pasar</span>
+          </div>
+
+          <div class="action">
+            <button type="button" class="round-btn like-btn" :disabled="!!leaving" aria-label="Me gusta" @click="act('like')">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 21s-7.5-4.6-9.4-9.3C1.2 8.2 3.1 5 6.3 5c2 0 3.5 1.1 4.2 2.4h3C14.2 6.1 15.7 5 17.7 5c3.2 0 5.1 3.2 3.7 6.7C19.5 16.4 12 21 12 21z" />
+              </svg>
+            </button>
+            <span>Me gusta</span>
+          </div>
+        </div>
+
+        <p class="hint">Tip: usa las flechas ← y → del teclado</p>
       </template>
 
       <section v-else class="empty">
@@ -39,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import logoUrl from '../assets/logo.png'
 import ProfileCard from '../components/discover/ProfileCard.vue'
 import { mockProfiles } from '../types/discover'
@@ -47,16 +67,31 @@ import type { DiscoverProfile } from '../types/discover'
 
 const profiles = ref<DiscoverProfile[]>([...mockProfiles])
 const currentIndex = ref(0)
+const leaving = ref<'like' | 'pass' | null>(null)
 
 const current = computed(() => profiles.value[currentIndex.value] ?? null)
 
-const next = () => {
-  currentIndex.value++
+const act = (type: 'like' | 'pass') => {
+  if (!current.value || leaving.value) return
+  leaving.value = type
+
+  setTimeout(() => {
+    currentIndex.value++
+    leaving.value = null
+  }, 320)
 }
 
 const restart = () => {
   currentIndex.value = 0
 }
+
+const onKey = (e: KeyboardEvent) => {
+  if (e.key === 'ArrowRight') act('like')
+  if (e.key === 'ArrowLeft') act('pass')
+}
+
+onMounted(() => window.addEventListener('keydown', onKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </script>
 
 <style scoped>
@@ -191,7 +226,6 @@ const restart = () => {
   color: var(--rm-placeholder);
 }
 
-/* Estado vacío */
 .empty {
   margin-top: 24px;
   display: flex;
