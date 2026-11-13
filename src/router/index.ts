@@ -9,6 +9,7 @@ import VerificationView from '../views/VerificationView.vue'
 import VerifyEmailView from '../views/VerifyEmailView.vue'
 import EmailConfirmedView from '../views/EmailConfirmedView.vue'
 import Discover from '../views/Discover.vue'
+import NotificationsView from '../views/NotificationsView.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -22,6 +23,7 @@ const routes = [
   { path: '/perfil/crear', name: 'ProfileCreate', component: ProfileCreateView },
   { path: '/perfil/editar', name: 'ProfileEdit', component: ProfileEditView },
   { path: '/descubrir', name: 'Discover', component: Discover },
+  { path: '/notificaciones', name: 'Notifications', component: NotificationsView },
 ]
 
 const router = createRouter({

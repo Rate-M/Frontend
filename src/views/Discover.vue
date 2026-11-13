@@ -4,6 +4,7 @@
       <header class="topbar">
         <img :src="logoUrl" alt="RateM Dating" class="logo-img" />
         <div class="top-actions">
+          <NotificationBell />
           <router-link to="/perfil/editar" class="icon-btn" aria-label="Mi perfil">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="8.5" r="3.5" />
@@ -55,6 +56,8 @@
         <router-link to="/perfil/editar" class="btn-secondary">Ajustar mis preferencias</router-link>
       </section>
     </div>
+
+    <MatchModal v-if="matched" :profile="matched" @close="matched = null" />
   </div>
 </template>
 
@@ -62,20 +65,31 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import logoUrl from '../assets/logo.png'
 import ProfileCard from '../components/discover/ProfileCard.vue'
+import MatchModal from '../components/discover/MatchModal.vue'
+import NotificationBell from '../components/notifications/NotificationBell.vue'
+import { useNotificationsStore } from '../stores/notifications'
 import { mockProfiles } from '../types/discover'
 import type { DiscoverProfile } from '../types/discover'
+
+const notifications = useNotificationsStore()
 
 const profiles = ref<DiscoverProfile[]>([...mockProfiles])
 const currentIndex = ref(0)
 const leaving = ref<'like' | 'pass' | null>(null)
+const matched = ref<DiscoverProfile | null>(null)
 
 const current = computed(() => profiles.value[currentIndex.value] ?? null)
 
 const act = (type: 'like' | 'pass') => {
   if (!current.value || leaving.value) return
+  const profile = current.value
   leaving.value = type
 
   setTimeout(() => {
+    if (type === 'like' && profile.likesYou) {
+      matched.value = profile
+      notifications.addMatch(profile)
+    }
     currentIndex.value++
     leaving.value = null
   }, 320)
@@ -86,6 +100,11 @@ const restart = () => {
 }
 
 const onKey = (e: KeyboardEvent) => {
+  if (e.key === 'Escape' && matched.value) {
+    matched.value = null
+    return
+  }
+  if (matched.value) return
   if (e.key === 'ArrowRight') act('like')
   if (e.key === 'ArrowLeft') act('pass')
 }
