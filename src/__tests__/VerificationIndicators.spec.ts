@@ -7,7 +7,6 @@ import VerificationToast from '../VerificationToast.vue'
 import { useVerificationStore } from '../../stores/verification'
 import { getVerificationStatus } from '../../services/verification.service'
 
-// MOCK del servicio: nosotros decidimos qué "responde el backend"
 vi.mock('../../services/verification.service', () => ({
   getVerificationStatus: vi.fn(),
   UnauthorizedError: class UnauthorizedError extends Error {}
