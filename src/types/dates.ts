@@ -1,6 +1,11 @@
 export type DateStatus = 'pending' | 'accepted' | 'declined'
 
-export type Attendance = 'unverified' | 'verified' | 'gps_failed'
+export type Attendance =
+  | 'unverified'
+  | 'verified'
+  | 'gps_failed'
+  | 'manual_pending'
+  | 'manual_confirmed'
 
 export const GEOFENCE_M = 150
 
@@ -30,4 +35,5 @@ export interface DateInvitation {
   createdAt: number
   attendance: Attendance
   gps?: GpsCheck
+  manual?: { me: boolean; them: boolean }
 }

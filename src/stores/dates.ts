@@ -9,6 +9,7 @@ const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
+
 const inDays = (days: number, hour: number) => {
   const d = new Date()
   d.setDate(d.getDate() + days)
@@ -19,6 +20,7 @@ const inDays = (days: number, hour: number) => {
 export const useDatesStore = defineStore('dates', () => {
   const chat = useChatStore()
 
+  
   const invitations = ref<DateInvitation[]>([
     {
       id: 'd-seed-1',
@@ -54,6 +56,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 20 * HOUR
     },
     {
+      
       id: 'd-seed-4',
       conversationId: 'c1',
       direction: 'sent',
@@ -65,6 +68,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 2 * DAY
     },
     {
+      
       id: 'd-seed-5',
       conversationId: 'c2',
       direction: 'received',
@@ -76,6 +80,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 3 * DAY
     },
     {
+
       id: 'd-seed-6',
       conversationId: 'c4',
       direction: 'sent',
@@ -179,5 +184,30 @@ export const useDatesStore = defineStore('dates', () => {
     invitation.attendance = gps.me.status === 'ok' && gps.them.status === 'ok' ? 'verified' : 'gps_failed'
   }
 
-  return { invitations, pendingReceivedCount, getById, byConversation, send, respond, verify }
+  const confirmManually = (id: string) => {
+    const invitation = getById(id)
+    if (!invitation || invitation.attendance !== 'gps_failed') return
+
+    invitation.manual = { me: true, them: false }
+    invitation.attendance = 'manual_pending'
+
+    setTimeout(() => {
+      const current = getById(id)
+      if (current && current.attendance === 'manual_pending') {
+        current.manual = { me: true, them: true }
+        current.attendance = 'manual_confirmed'
+      }
+    }, 3500)
+  }
+
+  return {
+    invitations,
+    pendingReceivedCount,
+    getById,
+    byConversation,
+    send,
+    respond,
+    verify,
+    confirmManually
+  }
 })

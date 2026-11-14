@@ -7,6 +7,21 @@
       Verificado: ambos en el lugar a la hora acordada
     </p>
 
+    <p v-else-if="invitation.attendance === 'manual_confirmed'" class="line ok">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+      Asistencia confirmada manualmente por ambos
+    </p>
+
+    <template v-else-if="invitation.attendance === 'manual_pending'">
+      <p class="line wait">
+        <span class="spinner" aria-hidden="true" />
+        Esperando que {{ name }} confirme
+      </p>
+      <router-link :to="`/cita/${invitation.id}/verificar`" class="btn">Ver estado</router-link>
+    </template>
+
     <template v-else-if="invitation.attendance === 'gps_failed'">
       <p class="line warn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -15,7 +30,7 @@
         </svg>
         No pudimos verificar por GPS
       </p>
-      <router-link :to="`/cita/${invitation.id}/verificar`" class="btn">Ver detalles</router-link>
+      <router-link :to="`/cita/${invitation.id}/verificar`" class="btn">Confirmar manualmente</router-link>
     </template>
 
     <router-link v-else-if="canVerify" :to="`/cita/${invitation.id}/verificar`" class="btn">
@@ -32,10 +47,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useChatStore } from '../../stores/chat'
 import type { DateInvitation } from '../../types/dates'
 
 const props = defineProps<{ invitation: DateInvitation }>()
 
+const chat = useChatStore()
+const name = computed(() => chat.getById(props.invitation.conversationId)?.name ?? 'tu match')
 const canVerify = computed(() => Date.now() >= props.invitation.startsAt - 30 * 60 * 1000)
 </script>
 
@@ -60,9 +78,23 @@ const canVerify = computed(() => Date.now() >= props.invitation.startsAt - 30 * 
 .line.warn {
   color: var(--rm-accent-dark);
 }
+.line.wait {
+  color: var(--rm-text-secondary);
+}
 .line.muted {
   font-weight: 400;
   color: var(--rm-text-muted);
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid var(--rm-border);
+  border-top-color: var(--rm-accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 .btn {
   height: 44px;
