@@ -12,7 +12,21 @@
 
     <div class="body">
       <div class="top">
-        <h3>{{ conversation.name }}</h3>
+        <div class="name-row">
+          <h3>{{ conversation.name }}</h3>
+          <span
+            v-if="streak.days > 0"
+            class="streak-chip"
+            :class="{ hot: streak.doneToday }"
+            :title="streakTitle"
+            :aria-label="streakTitle"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 3c.8 3.4 4.5 5.2 4.5 9.8a4.5 4.5 0 01-9 0c0-1.7.7-2.9 1.8-3.9.2 1.2.9 1.8 1.7 2C11.2 9 11 6 12 3z" />
+            </svg>
+            {{ streak.days }}
+          </span>
+        </div>
         <span class="time">{{ formatListTime(last.sentAt) }}</span>
       </div>
       <div class="bottom">
@@ -29,10 +43,18 @@
 import { computed } from 'vue'
 import type { Conversation } from '../../types/chat'
 import { formatListTime } from '../../utils/chatTime'
+import { computeStreak } from '../../utils/streak'
 
 const props = defineProps<{ conversation: Conversation }>()
 
 const last = computed(() => props.conversation.messages[props.conversation.messages.length - 1])
+const streak = computed(() => computeStreak(props.conversation.messages))
+
+const streakTitle = computed(() => {
+  const d = streak.value.days
+  const base = `Racha de ${d} ${d === 1 ? 'día' : 'días'}`
+  return streak.value.doneToday ? `${base} (hoy ya cumplieron)` : `${base} (escribe hoy para mantenerla)`
+})
 </script>
 
 <style scoped>
@@ -93,13 +115,40 @@ const last = computed(() => props.conversation.messages[props.conversation.messa
   justify-content: space-between;
   gap: 10px;
 }
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 .top h3 {
   margin: 0;
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 22px;
   line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.streak-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 999px;
+  background: var(--rm-btn-secondary);
+  color: var(--rm-accent-dark);
+  font-size: 12px;
+  font-weight: 600;
+}
+.streak-chip.hot {
+  background: var(--rm-accent);
+  color: #fff;
+}
+
 .time {
   flex-shrink: 0;
   font-size: 12px;
