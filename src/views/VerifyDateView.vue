@@ -77,7 +77,7 @@
       <section v-if="attendance === 'verified'" class="result ok" role="status">
         <h2>¡Asistencia verificada!</h2>
         <p>Ambos estuvieron en {{ place.name }} a la hora acordada. Tu cita quedó registrada.</p>
-        <!-- RM-58: aquí va el botón de calificar -->
+                <router-link :to="`/cita/${invitation.id}/calificar`" class="btn-primary">Calificar a {{ conv.name }}</router-link>
         <router-link to="/citas" class="btn-secondary">Volver a mis citas</router-link>
       </section>
 

@@ -1,18 +1,28 @@
 <template>
   <div v-if="invitation.status === 'accepted'" class="attend">
-    <p v-if="invitation.attendance === 'verified'" class="line ok">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 12.5l4.5 4.5L19 7.5" />
-      </svg>
-      Verificado: ambos en el lugar a la hora acordada
-    </p>
+    <template v-if="attended">
+      <p class="line ok">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+        {{ attendedText }}
+      </p>
 
-    <p v-else-if="invitation.attendance === 'manual_confirmed'" class="line ok">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 12.5l4.5 4.5L19 7.5" />
-      </svg>
-      Asistencia confirmada manualmente por ambos
-    </p>
+      <div v-if="invitation.review" class="reviewed">
+        <div class="mine">
+          <span class="mine-label">Tu calificación</span>
+          <StarRating :model-value="invitation.review.rating" readonly :size="16" />
+        </div>
+        <router-link :to="`/cita/${invitation.id}/calificar`" class="link">Ver reseña</router-link>
+      </div>
+
+      <router-link v-else :to="`/cita/${invitation.id}/calificar`" class="btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3.5l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8L12 3.5z" />
+        </svg>
+        Calificar a {{ name }}
+      </router-link>
+    </template>
 
     <template v-else-if="invitation.attendance === 'manual_pending'">
       <p class="line wait">
@@ -47,6 +57,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import StarRating from './StarRating.vue'
 import { useChatStore } from '../../stores/chat'
 import type { DateInvitation } from '../../types/dates'
 
@@ -55,6 +66,15 @@ const props = defineProps<{ invitation: DateInvitation }>()
 const chat = useChatStore()
 const name = computed(() => chat.getById(props.invitation.conversationId)?.name ?? 'tu match')
 const canVerify = computed(() => Date.now() >= props.invitation.startsAt - 30 * 60 * 1000)
+
+const attended = computed(
+  () => props.invitation.attendance === 'verified' || props.invitation.attendance === 'manual_confirmed'
+)
+const attendedText = computed(() =>
+  props.invitation.attendance === 'verified'
+    ? 'Verificado: ambos en el lugar a la hora acordada'
+    : 'Asistencia confirmada manualmente por ambos'
+)
 </script>
 
 <style scoped>
@@ -96,6 +116,28 @@ const canVerify = computed(() => Date.now() >= props.invitation.startsAt - 30 * 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.reviewed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mine {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mine-label {
+  font-size: 12px;
+  color: var(--rm-text-secondary);
+}
+.link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rm-accent-dark);
+}
+
 .btn {
   height: 44px;
   border-radius: 999px;

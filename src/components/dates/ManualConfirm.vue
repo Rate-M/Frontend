@@ -36,7 +36,7 @@
     <template v-else-if="invitation.attendance === 'manual_confirmed'">
       <h3 class="done">¡Asistencia confirmada!</h3>
       <p class="text">Ambos confirmaron manualmente que la cita se realizó.</p>
-      <!-- RM-58: aquí va el botón de calificar -->
+            <router-link :to="`/cita/${invitationId}/calificar`" class="btn-primary">Calificar a {{ name }}</router-link>
       <router-link to="/citas" class="btn-secondary">Volver a mis citas</router-link>
     </template>
   </section>
