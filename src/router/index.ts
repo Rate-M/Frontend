@@ -15,6 +15,7 @@ import ChatsView from '../views/ChatsView.vue'
 import PlacesView from '../views/PlacesView.vue'
 import DateInviteView from '../views/DateInviteView.vue'
 import DatesView from '../views/DatesView.vue'
+import VerifyDateView from '../views/VerifyDateView.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -33,6 +34,7 @@ const routes = [
   { path: '/chat/:id', name: 'Chat', component: ChatView },
   { path: '/lugares', name: 'Places', component: PlacesView },
   { path: '/cita/nueva', name: 'DateInvite', component: DateInviteView },
+  { path: '/cita/:id/verificar', name: 'VerifyDate', component: VerifyDateView },
   { path: '/citas', name: 'Dates', component: DatesView },
 ]
 

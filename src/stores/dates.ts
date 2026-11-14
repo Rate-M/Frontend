@@ -2,10 +2,12 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useChatStore } from './chat'
 import { getPlace } from '../types/places'
-import type { DateInvitation, DateStatus } from '../types/dates'
+import type { DateInvitation, DateStatus, GpsCheck, GpsScenario } from '../types/dates'
 import { formatDateTime } from '../utils/dateFormat'
 
-const HOUR = 60 * 60 * 1000
+const MINUTE = 60 * 1000
+const HOUR = 60 * MINUTE
+const DAY = 24 * HOUR
 
 const inDays = (days: number, hour: number) => {
   const d = new Date()
@@ -17,7 +19,6 @@ const inDays = (days: number, hour: number) => {
 export const useDatesStore = defineStore('dates', () => {
   const chat = useChatStore()
 
-
   const invitations = ref<DateInvitation[]>([
     {
       id: 'd-seed-1',
@@ -27,6 +28,7 @@ export const useDatesStore = defineStore('dates', () => {
       startsAt: inDays(1, 19),
       note: '¿Te late un café mañana en la tarde?',
       status: 'pending',
+      attendance: 'unverified',
       createdAt: Date.now() - 2 * HOUR
     },
     {
@@ -37,6 +39,7 @@ export const useDatesStore = defineStore('dates', () => {
       startsAt: inDays(3, 17),
       note: '',
       status: 'pending',
+      attendance: 'unverified',
       createdAt: Date.now() - 5 * HOUR
     },
     {
@@ -47,9 +50,49 @@ export const useDatesStore = defineStore('dates', () => {
       startsAt: inDays(5, 16),
       note: 'Caminata y helado, ¿qué dices?',
       status: 'accepted',
+      attendance: 'unverified',
       createdAt: Date.now() - 20 * HOUR
+    },
+    {
+      id: 'd-seed-4',
+      conversationId: 'c1',
+      direction: 'sent',
+      placeId: 'p1',
+      startsAt: Date.now() - 1 * HOUR,
+      note: 'Café y buena plática ☕',
+      status: 'accepted',
+      attendance: 'unverified',
+      createdAt: Date.now() - 2 * DAY
+    },
+    {
+      id: 'd-seed-5',
+      conversationId: 'c2',
+      direction: 'received',
+      placeId: 'p5',
+      startsAt: Date.now() - 3 * HOUR,
+      note: '',
+      status: 'accepted',
+      attendance: 'unverified',
+      createdAt: Date.now() - 3 * DAY
+    },
+    {
+      id: 'd-seed-6',
+      conversationId: 'c4',
+      direction: 'sent',
+      placeId: 'p7',
+      startsAt: inDays(-1, 19),
+      note: '',
+      status: 'accepted',
+      attendance: 'verified',
+      gps: {
+        me: { status: 'ok', distanceM: 28, arrivedAt: inDays(-1, 19) - 10 * MINUTE },
+        them: { status: 'ok', distanceM: 54, arrivedAt: inDays(-1, 19) + 3 * MINUTE }
+      },
+      createdAt: Date.now() - 4 * DAY
     }
   ])
+
+  const getById = (id: string) => invitations.value.find((i) => i.id === id)
 
   const pendingReceivedCount = computed(
     () => invitations.value.filter((i) => i.direction === 'received' && i.status === 'pending').length
@@ -82,6 +125,7 @@ export const useDatesStore = defineStore('dates', () => {
       startsAt: p.startsAt,
       note: p.note.trim(),
       status: 'pending',
+      attendance: 'unverified',
       createdAt: Date.now()
     }
     invitations.value.unshift(invitation)
@@ -90,7 +134,7 @@ export const useDatesStore = defineStore('dates', () => {
   }
 
   const respond = (id: string, status: Exclude<DateStatus, 'pending'>) => {
-    const invitation = invitations.value.find((i) => i.id === id)
+    const invitation = getById(id)
     if (!invitation || invitation.direction !== 'received' || invitation.status !== 'pending') return
 
     invitation.status = status
@@ -104,5 +148,36 @@ export const useDatesStore = defineStore('dates', () => {
     )
   }
 
-  return { invitations, pendingReceivedCount, byConversation, send, respond }
+  const verify = (id: string, scenario: GpsScenario) => {
+    const invitation = getById(id)
+    if (!invitation || invitation.status !== 'accepted') return
+
+    const t = invitation.startsAt
+
+    const gps: GpsCheck =
+      scenario === 'both'
+        ? {
+            me: { status: 'ok', distanceM: 35, arrivedAt: t - 6 * MINUTE },
+            them: { status: 'ok', distanceM: 62, arrivedAt: t + 4 * MINUTE }
+          }
+        : scenario === 'nosignal'
+          ? {
+              me: { status: 'error' },
+              them: { status: 'ok', distanceM: 48, arrivedAt: t + 2 * MINUTE }
+            }
+          : scenario === 'far'
+            ? {
+                me: { status: 'ok', distanceM: 41, arrivedAt: t - 3 * MINUTE },
+                them: { status: 'far', distanceM: 420 }
+              }
+            : {
+                me: { status: 'ok', distanceM: 41, arrivedAt: t - 3 * MINUTE },
+                them: { status: 'late', distanceM: 55, arrivedAt: t + 75 * MINUTE }
+              }
+
+    invitation.gps = gps
+    invitation.attendance = gps.me.status === 'ok' && gps.them.status === 'ok' ? 'verified' : 'gps_failed'
+  }
+
+  return { invitations, pendingReceivedCount, getById, byConversation, send, respond, verify }
 })

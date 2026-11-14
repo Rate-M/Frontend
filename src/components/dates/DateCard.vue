@@ -42,12 +42,15 @@
     <p v-else-if="invitation.status === 'declined'" class="result no" role="status">
       Rechazaste esta invitación.
     </p>
+
+    <AttendanceSection :invitation="invitation" />
   </article>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import CategoryIcon from '../places/CategoryIcon.vue'
+import AttendanceSection from './AttendanceSection.vue'
 import { useChatStore } from '../../stores/chat'
 import { useDatesStore } from '../../stores/dates'
 import { getPlace } from '../../types/places'
