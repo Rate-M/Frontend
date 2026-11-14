@@ -51,6 +51,7 @@
         </div>
       </header>
 
+            <StreakBanner :conversation-id="conv.id" />
       <div ref="listEl" class="messages" aria-live="polite">
         <div v-if="!conv.messages.length" class="icebreaker">
           <img :src="conv.photo" alt="" class="ice-avatar" />
@@ -108,6 +109,7 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import UnmatchModal from '../components/chat/UnmatchModal.vue'
+import StreakBanner from '../components/chat/StreakBanner.vue'
 import { useChatStore } from '../stores/chat'
 import { formatHour } from '../utils/chatTime'
 
