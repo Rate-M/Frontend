@@ -8,20 +8,37 @@
         {{ attendedText }}
       </p>
 
-      <div v-if="invitation.review" class="reviewed">
+
+      <div v-if="rState === 'published' && invitation.review" class="reviewed">
         <div class="mine">
-          <span class="mine-label">Tu calificación</span>
+          <span class="mine-label">Tu calificación · reseñas publicadas</span>
           <StarRating :model-value="invitation.review.rating" readonly :size="16" />
         </div>
-        <router-link :to="`/cita/${invitation.id}/calificar`" class="link">Ver reseña</router-link>
+        <router-link :to="`/cita/${invitation.id}/calificar`" class="link">Ver reseñas</router-link>
       </div>
 
-      <router-link v-else :to="`/cita/${invitation.id}/calificar`" class="btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 3.5l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8L12 3.5z" />
-        </svg>
-        Calificar a {{ name }}
-      </router-link>
+      
+      <div v-else-if="rState === 'waiting'" class="reviewed">
+        <p class="line wait">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+            <path d="M8 10.5V8a4 4 0 018 0v2.5" />
+          </svg>
+          Reseña enviada · se publicará cuando {{ name }} califique
+        </p>
+        <router-link :to="`/cita/${invitation.id}/calificar`" class="link">Ver estado</router-link>
+      </div>
+
+    
+      <template v-else>
+        <router-link :to="`/cita/${invitation.id}/calificar`" class="btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3.5l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8L12 3.5z" />
+          </svg>
+          Calificar a {{ name }}
+        </router-link>
+        <p v-if="invitation.theirReview" class="hint">{{ name }} ya calificó. Verás su reseña cuando envíes la tuya.</p>
+      </template>
     </template>
 
     <template v-else-if="invitation.attendance === 'manual_pending'">
@@ -60,12 +77,14 @@ import { computed } from 'vue'
 import StarRating from './StarRating.vue'
 import { useChatStore } from '../../stores/chat'
 import type { DateInvitation } from '../../types/dates'
+import { reviewState } from '../../utils/reviews'
 
 const props = defineProps<{ invitation: DateInvitation }>()
 
 const chat = useChatStore()
 const name = computed(() => chat.getById(props.invitation.conversationId)?.name ?? 'tu match')
 const canVerify = computed(() => Date.now() >= props.invitation.startsAt - 30 * 60 * 1000)
+const rState = computed(() => reviewState(props.invitation))
 
 const attended = computed(
   () => props.invitation.attendance === 'verified' || props.invitation.attendance === 'manual_confirmed'
@@ -105,6 +124,14 @@ const attendedText = computed(() =>
   font-weight: 400;
   color: var(--rm-text-muted);
 }
+.line svg {
+  flex-shrink: 0;
+}
+.hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--rm-text-secondary);
+}
 .spinner {
   width: 16px;
   height: 16px;
@@ -133,6 +160,7 @@ const attendedText = computed(() =>
   color: var(--rm-text-secondary);
 }
 .link {
+  flex-shrink: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--rm-accent-dark);

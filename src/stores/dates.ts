@@ -9,7 +9,6 @@ const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
-
 const inDays = (days: number, hour: number) => {
   const d = new Date()
   d.setDate(d.getDate() + days)
@@ -19,8 +18,6 @@ const inDays = (days: number, hour: number) => {
 
 export const useDatesStore = defineStore('dates', () => {
   const chat = useChatStore()
-
-
   const invitations = ref<DateInvitation[]>([
     {
       id: 'd-seed-1',
@@ -56,7 +53,6 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 20 * HOUR
     },
     {
-      
       id: 'd-seed-4',
       conversationId: 'c1',
       direction: 'sent',
@@ -68,7 +64,6 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 2 * DAY
     },
     {
-     
       id: 'd-seed-5',
       conversationId: 'c2',
       direction: 'received',
@@ -80,7 +75,6 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 3 * DAY
     },
     {
-     
       id: 'd-seed-6',
       conversationId: 'c4',
       direction: 'sent',
@@ -92,6 +86,12 @@ export const useDatesStore = defineStore('dates', () => {
       gps: {
         me: { status: 'ok', distanceM: 28, arrivedAt: inDays(-1, 19) - 10 * MINUTE },
         them: { status: 'ok', distanceM: 54, arrivedAt: inDays(-1, 19) + 3 * MINUTE }
+      },
+      theirReview: {
+        rating: 5,
+        tags: ['Amable', 'Buena conversación'],
+        comment: 'Fue una cita muy agradable, gracias por la buena plática 😊',
+        createdAt: Date.now() - 2 * HOUR
       },
       createdAt: Date.now() - 4 * DAY
     }
@@ -138,7 +138,6 @@ export const useDatesStore = defineStore('dates', () => {
     return invitation
   }
 
-
   const respond = (id: string, status: Exclude<DateStatus, 'pending'>) => {
     const invitation = getById(id)
     if (!invitation || invitation.direction !== 'received' || invitation.status !== 'pending') return
@@ -154,7 +153,6 @@ export const useDatesStore = defineStore('dates', () => {
     )
   }
 
- 
   const verify = (id: string, scenario: GpsScenario) => {
     const invitation = getById(id)
     if (!invitation || invitation.status !== 'accepted') return
@@ -213,12 +211,17 @@ export const useDatesStore = defineStore('dates', () => {
       comment: p.comment.trim(),
       createdAt: Date.now()
     }
+  }
+
+  const simulateTheirReview = (id: string) => {
+    const invitation = getById(id)
+    if (!invitation || !invitation.review || invitation.theirReview) return
 
     invitation.theirReview = {
-      rating: 5,
-      tags: ['Amable', 'Buena conversación'],
-      comment: 'Fue una cita muy agradable, gracias por la buena plática 😊',
-      createdAt: Date.now() - 2 * HOUR
+      rating: 4,
+      tags: ['Puntual', 'Amable'],
+      comment: 'Me la pasé muy bien, gracias por la invitación 😊',
+      createdAt: Date.now()
     }
   }
 
@@ -231,6 +234,7 @@ export const useDatesStore = defineStore('dates', () => {
     respond,
     verify,
     confirmManually,
-    submitReview
+    submitReview,
+    simulateTheirReview
   }
 })
