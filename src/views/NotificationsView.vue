@@ -11,7 +11,9 @@
         <span class="head-spacer" />
       </header>
 
-      <button v-if="store.unreadCount" type="button" class="mark-read" @click="store.markAllRead()">
+      <p v-if="store.error" role="alert">{{ store.error }}</p>
+      <p v-if="store.loading && !store.items.length" role="status">Cargando notificaciones…</p>
+      <button v-if="store.unreadCount" :disabled="store.loading || store.marking" type="button" class="mark-read" @click="store.markAllRead()">
         Marcar todas como leídas
       </button>
 
@@ -40,8 +42,8 @@
         </li>
       </ul>
 
-      <div v-else class="empty">
-        <h2>Aún no tienes notificaciones</h2>
+      <div v-else-if="!store.loading && !store.error" class="empty">
+        <h2>No tienes notificaciones pendientes</h2>
         <p>Cuando alguien te dé "me gusta" de vuelta, te avisaremos aquí.</p>
       </div>
     </div>
@@ -49,9 +51,11 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useNotificationsStore } from '../stores/notifications'
 
 const store = useNotificationsStore()
+onMounted(() => { void store.refresh() })
 
 const timeAgo = (ts: number) => {
   const minutes = Math.floor((Date.now() - ts) / 60000)

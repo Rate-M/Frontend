@@ -17,9 +17,20 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
 import { useNotificationsStore } from '../../stores/notifications'
 
 const store = useNotificationsStore()
+let timer: ReturnType<typeof setInterval> | undefined
+
+onMounted(() => {
+  void store.refresh()
+  timer = setInterval(() => {
+    if (!document.hidden && !store.loading) void store.refresh()
+  }, 30000)
+})
+
+onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>

@@ -21,10 +21,11 @@ it('carga perfiles reales, conserva la tarjeta si falla el envío y muestra el m
     .mockResolvedValueOnce(new Response(JSON.stringify({ profiles: [person] })))
     .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Intenta otra vez' }), { status: 503 }))
     .mockResolvedValueOnce(new Response(JSON.stringify({ match: { id: 'match-1' } }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ notifications: [], nextCursor: null })))
   vi.stubGlobal('fetch', fetchMock)
   const pinia = createPinia()
   useAuthStore(pinia).login('signed-token', { id: 'account-1' })
-  const view = mount(Discover, { global: { plugins: [pinia], stubs: ['RouterLink'] } })
+  const view = mount(Discover, { global: { plugins: [pinia], stubs: ['RouterLink', 'NotificationBell'] } })
   try {
     await flushPromises()
     expect(view.text()).toContain('Alex')
@@ -60,7 +61,7 @@ it('pide la ubicación solo tras autorizar, registra el consentimiento y permite
   vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
   const pinia = createPinia()
   useAuthStore(pinia).login('signed-token', { id: 'account-1' })
-  const view = mount(Discover, { global: { plugins: [pinia], stubs: ['RouterLink'] } })
+  const view = mount(Discover, { global: { plugins: [pinia], stubs: ['RouterLink', 'NotificationBell'] } })
   try {
     await flushPromises()
     expect(getCurrentPosition).not.toHaveBeenCalled()
