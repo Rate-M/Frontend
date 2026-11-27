@@ -51,6 +51,9 @@
 import { ref, reactive } from 'vue'
 import logoUrl from '../assets/logo.png'
 
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+
 const form = reactive({
   email: ''
 })
@@ -64,9 +67,9 @@ const success = ref(false)
 const formError = ref('')
 
 const validateEmail = () => {
-  if (!form.email) {
+  if (!form.email.trim()) {
     errors.email = 'El correo es requerido'
-  } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+  } else if (!/\S+@\S+\.\S+/.test(form.email.trim())) {
     errors.email = 'Ingresa un correo válido'
   } else {
     errors.email = ''
@@ -74,6 +77,7 @@ const validateEmail = () => {
 }
 
 const handleForgotPassword = async () => {
+  if (loading.value || success.value) return
   formError.value = ''
   validateEmail()
 
@@ -82,13 +86,21 @@ const handleForgotPassword = async () => {
   loading.value = true
 
   try {
-
-
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    if (!useMocks) {
+      const response = await fetch(`${apiUrl}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.email.trim() }),
+      })
+      if (!response.ok) {
+        const result = await response.json().catch(() => null)
+        formError.value = result?.message ?? 'No pudimos procesar tu solicitud. Intenta de nuevo.'
+        return
+      }
+    }
     success.value = true
-  } catch (error) {
-    console.error('Error:', error)
-    formError.value = 'No pudimos procesar tu solicitud. Intenta de nuevo.'
+  } catch {
+    formError.value = 'No pudimos conectar con el servidor. Intenta de nuevo.'
   } finally {
     loading.value = false
   }

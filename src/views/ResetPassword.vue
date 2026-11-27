@@ -84,7 +84,7 @@
       </form>
 
       <p v-else class="success-message">
-        ✓ Contraseña cambiada exitosamente. Redirigiendo al login...
+        ✓ Contraseña cambiada. <router-link to="/login">Inicia sesión</router-link>
       </p>
     </div>
   </div>
@@ -92,10 +92,12 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import logoUrl from '../assets/logo.png'
 
-const router = useRouter()
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+
 const route = useRoute()
 
 const form = reactive({
@@ -135,6 +137,7 @@ const validateConfirmPassword = () => {
 }
 
 const handleResetPassword = async () => {
+  if (loading.value || success.value) return
   formError.value = ''
   validatePassword()
   validateConfirmPassword()
@@ -144,19 +147,26 @@ const handleResetPassword = async () => {
   loading.value = true
 
   try {
-    const token = route.params.token
-    // Aquí iría la llamada real a la API
-    // await axios.post(`/api/auth/reset-password/${token}`, { password: form.password })
-
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    if (!useMocks) {
+      const token = route.params.token
+      if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) {
+        formError.value = 'El enlace es inválido o ya expiró.'
+        return
+      }
+      const response = await fetch(`${apiUrl}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: form.password }),
+      })
+      if (!response.ok) {
+        const result = await response.json().catch(() => null)
+        formError.value = result?.message ?? 'No pudimos cambiar tu contraseña. Intenta de nuevo.'
+        return
+      }
+    }
     success.value = true
-
-    setTimeout(() => {
-      router.push('/login')
-    }, 2000)
-  } catch (error) {
-    console.error('Error:', error)
-    formError.value = 'No pudimos cambiar tu contraseña. Intenta de nuevo.'
+  } catch {
+    formError.value = 'No pudimos conectar con el servidor. Intenta de nuevo.'
   } finally {
     loading.value = false
   }
