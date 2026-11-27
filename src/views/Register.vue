@@ -152,6 +152,8 @@ import { useAuthStore } from '../stores/auth'
 import LegalModal from '../components/LegalModal.vue'
 import logoUrl from '../assets/logo.png'
 
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -179,9 +181,9 @@ const validateName = () => {
 }
 
 const validateEmail = () => {
-  if (!form.email) {
+  if (!form.email.trim()) {
     errors.email = 'El correo es requerido'
-  } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+  } else if (!/\S+@\S+\.\S+/.test(form.email.trim())) {
     errors.email = 'Ingresa un correo válido'
   } else {
     errors.email = ''
@@ -199,6 +201,7 @@ const validatePassword = () => {
 }
 
 const handleRegister = async () => {
+  if (loading.value) return
   formError.value = ''
   validateName()
   validateEmail()
@@ -211,20 +214,29 @@ const handleRegister = async () => {
   loading.value = true
 
   try {
-  
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    authStore.login('fake-token', {
-      email: form.email,
-      name: form.name,
-      verified: false,
-      emailVerified: false,
-      privacyPolicyAccepted: 'v1.0',
-      consents: {}
-    })
-    router.push('/confirmar-correo')
-  } catch (error) {
-    console.error('Error al registrar:', error)
-    formError.value = 'No pudimos crear tu cuenta. Intenta de nuevo en unos segundos.'
+    const email = form.email.trim()
+    if (useMocks) {
+      authStore.login('fake-token', {
+        email, name: form.name, verified: false, emailVerified: false,
+        privacyPolicyAccepted: 'v1.0', consents: {},
+      })
+    } else {
+      const response = await fetch(`${apiUrl}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email, password: form.password, acceptPrivacy: form.acceptTerms, acceptTerms: form.acceptTerms,
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok) {
+        formError.value = result.message ?? result.errors?.[0]?.msg ?? 'No pudimos crear tu cuenta.'
+        return
+      }
+    }
+    await router.push({ path: '/confirmar-correo', state: { registrationEmail: email } })
+  } catch {
+    formError.value = 'No pudimos conectar con el servidor. Intenta de nuevo.'
   } finally {
     loading.value = false
   }

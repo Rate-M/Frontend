@@ -25,7 +25,7 @@
             crear tu cuenta.
           </p>
         </div>
-        <button type="button" class="btn-primary" @click="router.push('/verificacion')">
+        <button type="button" class="btn-primary" @click="router.push(useMocks ? '/verificacion' : '/login')">
           Continuar
         </button>
       </section>
@@ -38,11 +38,15 @@
           </svg>
         </div>
         <div class="form-header">
-          <h1>Este enlace venció</h1>
-          <p>Los enlaces duran 24 horas. Pide uno nuevo y te lo enviamos otra vez.</p>
+          <h1>{{ state === 'error' ? 'No pudimos confirmar tu correo' : 'Enlace inválido o vencido' }}</h1>
+          <p v-if="state === 'error'">Revisa tu conexión e intenta de nuevo.</p>
+          <p v-else>Los enlaces duran 24 horas y solo se pueden usar una vez.</p>
         </div>
-        <button type="button" class="btn-primary" @click="router.push('/confirmar-correo')">
-          Pedir un enlace nuevo
+        <button v-if="state === 'error'" type="button" class="btn-primary" @click="confirmEmail">
+          Reintentar
+        </button>
+        <button v-else type="button" class="btn-primary" @click="router.push(useMocks ? '/confirmar-correo' : '/login')">
+          {{ useMocks ? 'Pedir un enlace nuevo' : 'Ir a iniciar sesión' }}
         </button>
       </section>
     </div>
@@ -55,7 +59,9 @@ import { useRoute, useRouter } from 'vue-router'
 import logoUrl from '../assets/logo.png'
 import { useAuthStore } from '../stores/auth'
 
-type State = 'checking' | 'success' | 'expired'
+type State = 'checking' | 'success' | 'expired' | 'error'
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 
 const route = useRoute()
 const router = useRouter()
@@ -63,20 +69,28 @@ const authStore = useAuthStore()
 
 const state = ref<State>('checking')
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-onMounted(async () => {
-  await wait(1200)
-
-  // Simulación: el token "expirado" muestra el enlace vencido, cualquier otro es válido
-  if (route.params.token === 'expirado') {
+const confirmEmail = async () => {
+  state.value = 'checking'
+  const token = route.params.token
+  if (typeof token !== 'string' || !token || token === 'expirado') {
     state.value = 'expired'
     return
   }
+  if (useMocks) {
+    authStore.setEmailVerified()
+    state.value = 'success'
+    return
+  }
 
-  authStore.setEmailVerified()
-  state.value = 'success'
-})
+  try {
+    const response = await fetch(`${apiUrl}/auth/verify-email?token=${encodeURIComponent(token)}`)
+    state.value = response.ok ? 'success' : response.status === 400 ? 'expired' : 'error'
+  } catch {
+    state.value = 'error'
+  }
+}
+
+onMounted(confirmEmail)
 </script>
 
 <style scoped>
