@@ -22,7 +22,7 @@
         <router-link :to="`/cita/${invitation.id}/verificar`" class="btn-primary">Verificar asistencia</router-link>
       </section>
 
-      <!-- Las dos reseñas ya están publicadas -->
+    
       <template v-else-if="state === 'published' && invitation.review && invitation.theirReview">
         <div class="banner ok" role="status">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -49,13 +49,22 @@
           <ul v-if="invitation.theirReview.tags.length" class="tags">
             <li v-for="t in invitation.theirReview.tags" :key="t">{{ t }}</li>
           </ul>
-          <p v-if="invitation.theirReview.comment" class="comment">“{{ invitation.theirReview.comment }}”</p>
+          <p v-if="invitation.theirReview.comment" class="comment">“{{ theirComment.text }}”</p>
+
+          <p v-if="theirComment.count > 0" class="filtered" role="note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z" />
+              <path d="M9 12h6" />
+            </svg>
+            Filtrado automáticamente: se ocultaron {{ theirComment.count }}
+            {{ theirComment.count === 1 ? 'palabra no permitida' : 'palabras no permitidas' }}.
+          </p>
         </section>
 
         <router-link to="/citas" class="btn-secondary">Volver a mis citas</router-link>
       </template>
 
-      <!-- Yo ya califiqué, falta la otra persona -->
+    
       <template v-else-if="state === 'waiting' && invitation.review">
         <div class="banner wait" role="status">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -89,10 +98,15 @@
         </section>
 
         <div class="demo">
-          <p class="demo-title">Solo diseño · Simular</p>
-          <button type="button" class="demo-btn" @click="dates.simulateTheirReview(invitation.id)">
-            Simular que {{ conv.name }} califica
-          </button>
+          <p class="demo-title">Solo diseño · Simular que {{ conv.name }} califica</p>
+          <div class="demo-actions">
+            <button type="button" class="demo-btn" @click="dates.simulateTheirReview(invitation.id, 'clean')">
+              Con comentario normal
+            </button>
+            <button type="button" class="demo-btn" @click="dates.simulateTheirReview(invitation.id, 'prohibited')">
+              Con palabras prohibidas
+            </button>
+          </div>
         </div>
 
         <router-link to="/citas" class="btn-secondary">Volver a mis citas</router-link>
@@ -139,15 +153,39 @@
 
         <div class="block">
           <label class="label" for="comment">Comentario (opcional)</label>
-          <textarea id="comment" v-model="comment" rows="4" maxlength="300" placeholder="Cuéntanos cómo te fue en la cita..." />
-          <span class="counter">{{ comment.length }}/300</span>
+          <textarea
+            id="comment"
+            v-model="comment"
+            rows="4"
+            maxlength="300"
+            placeholder="Cuéntanos cómo te fue en la cita..."
+            :class="{ invalid: blocked }"
+            :aria-invalid="blocked"
+            aria-describedby="comment-help"
+          />
+          <div class="comment-meta">
+            <span class="counter">{{ comment.length }}/300</span>
+          </div>
+
+          <p v-if="blocked" id="comment-help" class="field-error" role="alert">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M12 7.5v5M12 16v.01" />
+            </svg>
+            <span>
+              Tu comentario contiene palabras no permitidas ({{ badWordsMasked }}). Quítalas para poder enviar tu reseña.
+            </span>
+          </p>
+          <p v-else id="comment-help" class="field-help">
+            Filtro automático: no se permiten insultos ni lenguaje ofensivo.
+          </p>
         </div>
 
         <p class="note">
           Las reseñas se publican solo cuando ambos hayan calificado. Antes de eso, nadie puede ver la tuya.
         </p>
 
-        <button type="submit" class="btn-primary" :disabled="!rating">Enviar reseña</button>
+        <button type="submit" class="btn-primary" :disabled="!rating || blocked">Enviar reseña</button>
       </form>
     </div>
 
@@ -167,6 +205,7 @@ import { useDatesStore } from '../stores/dates'
 import { getPlace } from '../types/places'
 import { formatDateTime } from '../utils/dateFormat'
 import { reviewState } from '../utils/reviews'
+import { findProhibited, maskProhibited, maskWord } from '../utils/moderation'
 
 const route = useRoute()
 const router = useRouter()
@@ -202,18 +241,24 @@ const comment = ref('')
 
 const ratingLabel = computed(() => LABELS[rating.value] || 'Toca una estrella para calificar')
 
+const badWords = computed(() => findProhibited(comment.value))
+const blocked = computed(() => badWords.value.length > 0)
+const badWordsMasked = computed(() => badWords.value.map(maskWord).join(', '))
+
+const theirComment = computed(() => maskProhibited(invitation.value?.theirReview?.comment ?? ''))
+
 const toggleTag = (t: string) => {
   tags.value = tags.value.includes(t) ? tags.value.filter((x) => x !== t) : [...tags.value, t]
 }
 
 const submit = () => {
-  if (!invitation.value || !rating.value) return
-  dates.submitReview(invitation.value.id, {
+  if (!invitation.value || !rating.value || blocked.value) return
+  const ok = dates.submitReview(invitation.value.id, {
     rating: rating.value,
     tags: tags.value,
     comment: comment.value
   })
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  if (ok) window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 </script>
 
@@ -429,8 +474,35 @@ textarea:focus {
   outline: none;
   border-color: var(--rm-text);
 }
+textarea.invalid {
+  border-color: var(--rm-accent);
+  background: #fdf3f2;
+}
+.comment-meta {
+  display: flex;
+  justify-content: flex-end;
+}
 .counter {
-  align-self: flex-end;
+  font-size: 12px;
+  color: var(--rm-text-muted);
+}
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fdf3f2;
+  border: 1px solid var(--rm-accent);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--rm-accent-dark);
+}
+.field-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.field-help {
   font-size: 12px;
   color: var(--rm-text-muted);
 }
@@ -506,6 +578,23 @@ textarea:focus {
   line-height: 1.5;
   color: var(--rm-text-body);
 }
+.filtered {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rm-bg);
+  border: 1px solid var(--rm-border);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--rm-text-secondary);
+}
+.filtered svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--rm-accent-dark);
+}
 
 .demo {
   display: flex;
@@ -521,6 +610,11 @@ textarea:focus {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--rm-text-muted);
+}
+.demo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .demo-btn {
   height: 44px;

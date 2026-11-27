@@ -4,6 +4,7 @@ import { useChatStore } from './chat'
 import { getPlace } from '../types/places'
 import type { DateInvitation, DateStatus, GpsCheck, GpsScenario } from '../types/dates'
 import { formatDateTime } from '../utils/dateFormat'
+import { findProhibited } from '../utils/moderation'
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -18,6 +19,8 @@ const inDays = (days: number, hour: number) => {
 
 export const useDatesStore = defineStore('dates', () => {
   const chat = useChatStore()
+
+  
   const invitations = ref<DateInvitation[]>([
     {
       id: 'd-seed-1',
@@ -53,6 +56,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 20 * HOUR
     },
     {
+  
       id: 'd-seed-4',
       conversationId: 'c1',
       direction: 'sent',
@@ -64,6 +68,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 2 * DAY
     },
     {
+
       id: 'd-seed-5',
       conversationId: 'c2',
       direction: 'received',
@@ -75,6 +80,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 3 * DAY
     },
     {
+
       id: 'd-seed-6',
       conversationId: 'c4',
       direction: 'sent',
@@ -138,6 +144,7 @@ export const useDatesStore = defineStore('dates', () => {
     return invitation
   }
 
+ 
   const respond = (id: string, status: Exclude<DateStatus, 'pending'>) => {
     const invitation = getById(id)
     if (!invitation || invitation.direction !== 'received' || invitation.status !== 'pending') return
@@ -200,10 +207,11 @@ export const useDatesStore = defineStore('dates', () => {
     }, 3500)
   }
 
-  const submitReview = (id: string, p: { rating: number; tags: string[]; comment: string }) => {
+  const submitReview = (id: string, p: { rating: number; tags: string[]; comment: string }): boolean => {
     const invitation = getById(id)
-    if (!invitation || invitation.review) return
-    if (invitation.attendance !== 'verified' && invitation.attendance !== 'manual_confirmed') return
+    if (!invitation || invitation.review) return false
+    if (invitation.attendance !== 'verified' && invitation.attendance !== 'manual_confirmed') return false
+    if (findProhibited(p.comment).length > 0) return false
 
     invitation.review = {
       rating: p.rating,
@@ -211,18 +219,27 @@ export const useDatesStore = defineStore('dates', () => {
       comment: p.comment.trim(),
       createdAt: Date.now()
     }
+    return true
   }
 
-  const simulateTheirReview = (id: string) => {
+  const simulateTheirReview = (id: string, variant: 'clean' | 'prohibited' = 'clean') => {
     const invitation = getById(id)
     if (!invitation || !invitation.review || invitation.theirReview) return
 
-    invitation.theirReview = {
-      rating: 4,
-      tags: ['Puntual', 'Amable'],
-      comment: 'Me la pasé muy bien, gracias por la invitación 😊',
-      createdAt: Date.now()
-    }
+    invitation.theirReview =
+      variant === 'clean'
+        ? {
+            rating: 4,
+            tags: ['Puntual', 'Amable'],
+            comment: 'Me la pasé muy bien, gracias por la invitación 😊',
+            createdAt: Date.now()
+          }
+        : {
+            rating: 1,
+            tags: ['Poca conversación'],
+            comment: 'Fue un desastre, es una persona muy idiota y la plática fue una mierda.',
+            createdAt: Date.now()
+          }
   }
 
   return {
