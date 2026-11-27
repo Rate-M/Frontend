@@ -28,7 +28,7 @@
 
     <div class="info">
       <ul class="meta">
-        <li>
+        <li v-if="profile.occupation">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="7" width="18" height="12" rx="2.5" />
             <path d="M9 7V5.5A1.5 1.5 0 0110.5 4h3A1.5 1.5 0 0115 5.5V7" />
