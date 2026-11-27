@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { createMockConversations } from '../types/chat'
 import type { Conversation } from '../types/chat'
+import { computeStreak } from '../utils/streak'
 
 const REPLIES = [
   '¡Jaja, qué bien!',
@@ -28,6 +29,11 @@ export const useChatStore = defineStore('chat', () => {
   const newMatches = computed(() => conversations.value.filter((c) => c.messages.length === 0))
 
   const totalUnread = computed(() => conversations.value.reduce((sum, c) => sum + c.unread, 0))
+
+  const streakOf = (id: string) => {
+    const c = getById(id)
+    return c ? computeStreak(c.messages) : null
+  }
 
   const markRead = (id: string) => {
     const c = getById(id)
@@ -92,6 +98,7 @@ export const useChatStore = defineStore('chat', () => {
     active,
     newMatches,
     totalUnread,
+    streakOf,
     getById,
     markRead,
     setNotice,
