@@ -10,7 +10,11 @@
 
       <p v-if="formError" class="form-alert" role="alert">{{ formError }}</p>
 
-      <ProfileForm mode="create" :loading="loading" @submit="handleCreate" />
+      <ProfileForm v-if="!created" mode="create" :loading="loading" :show-mock-fields="useMocks" @submit="handleCreate" />
+      <section v-else aria-label="Preferencias pendientes">
+        <p>Tu perfil ya está guardado. Falta guardar tus preferencias de descubrimiento.</p>
+        <button type="button" :disabled="loading" @click="retryPreferences">Guardar preferencias</button>
+      </section>
     </div>
   </div>
 </template>
@@ -20,29 +24,45 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logoUrl from '../assets/logo.png'
 import ProfileForm from '../components/profile/ProfileForm.vue'
-import type { LegalAcceptance, ProfileFormData } from '../types/profile'
+import { createProfile, saveProfilePreferences } from '../services/profiles'
+import { useAuthStore } from '../stores/auth'
+import type { ProfileFormData } from '../types/profile'
 
 const router = useRouter()
+const auth = useAuthStore()
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 const loading = ref(false)
 const formError = ref('')
+const created = ref<ProfileFormData | null>(null)
 
-const handleCreate = async (data: ProfileFormData, acceptance?: LegalAcceptance) => {
+const finish = async (data: ProfileFormData) => {
+  if (loading.value) return
+  if (!auth.token) {
+    await router.push('/login')
+    return
+  }
   formError.value = ''
   loading.value = true
 
   try {
-    console.log('Perfil a crear:', data)
-    console.log('Términos y aviso aceptados:', acceptance)
-
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    router.push('/descubrir')
+    if (!useMocks) {
+      if (!created.value) {
+        await createProfile(auth.token, data)
+        created.value = data
+      }
+      await saveProfilePreferences(auth.token, data)
+    }
+    await router.push('/descubrir')
   } catch (error) {
-    console.error('Error:', error)
-    formError.value = 'No pudimos crear tu perfil. Intenta de nuevo.'
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    formError.value = error instanceof Error ? error.message : 'No pudimos guardar tu perfil.'
   } finally {
     loading.value = false
   }
+}
+
+const handleCreate = (data: ProfileFormData) => void finish(data)
+const retryPreferences = () => {
+  if (created.value) void finish(created.value)
 }
 </script>
 
