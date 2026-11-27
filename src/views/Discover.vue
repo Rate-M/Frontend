@@ -26,7 +26,10 @@
         </div>
       </header>
 
-      <template v-if="current">
+      <p v-if="error" role="alert">{{ error }}</p>
+      <p v-if="loading" role="status">Buscando perfiles…</p>
+
+      <template v-else-if="current">
         <p class="counter">Perfil {{ currentIndex + 1 }} de {{ profiles.length }}</p>
 
         <div class="stage" :class="{ 'leave-like': leaving === 'like', 'leave-pass': leaving === 'pass' }">
@@ -35,7 +38,7 @@
 
         <div class="actions">
           <div class="action">
-            <button type="button" class="round-btn pass-btn" :disabled="!!leaving" aria-label="Pasar" @click="act('pass')">
+            <button type="button" class="round-btn pass-btn" :disabled="!!leaving || saving" aria-label="Pasar" @click="act('pass')">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>
@@ -44,7 +47,7 @@
           </div>
 
           <div class="action">
-            <button type="button" class="round-btn like-btn" :disabled="!!leaving" aria-label="Me gusta" @click="act('like')">
+            <button type="button" class="round-btn like-btn" :disabled="!!leaving || saving" aria-label="Me gusta" @click="act('like')">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 21s-7.5-4.6-9.4-9.3C1.2 8.2 3.1 5 6.3 5c2 0 3.5 1.1 4.2 2.4h3C14.2 6.1 15.7 5 17.7 5c3.2 0 5.1 3.2 3.7 6.7C19.5 16.4 12 21 12 21z" />
               </svg>
@@ -62,9 +65,9 @@
             <path d="M12 3.5l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8L12 3.5z" />
           </svg>
         </div>
-        <h1>Por hoy es todo</h1>
-        <p>Ya viste todos los perfiles cerca de ti. Vuelve más tarde para conocer a más personas.</p>
-        <button type="button" class="btn-primary" @click="restart">Volver a empezar</button>
+        <h1>{{ error ? 'No se pudieron cargar los perfiles' : 'Por hoy es todo' }}</h1>
+        <p v-if="!error">Ya viste todos los perfiles cerca de ti. Vuelve más tarde para conocer a más personas.</p>
+        <button type="button" class="btn-primary" @click="restart">{{ useMocks ? 'Volver a empezar' : 'Actualizar perfiles' }}</button>
         <router-link to="/perfil/editar" class="btn-secondary">Ajustar mis preferencias</router-link>
       </section>
     </div>
@@ -79,26 +82,78 @@ import logoUrl from '../assets/logo.png'
 import ProfileCard from '../components/discover/ProfileCard.vue'
 import MatchModal from '../components/discover/MatchModal.vue'
 import NotificationBell from '../components/notifications/NotificationBell.vue'
+import { useAuthStore } from '../stores/auth'
+import { DiscoveryError, loadDiscovery, saveSwipe } from '../services/discovery'
 import { useNotificationsStore } from '../stores/notifications'
 import { mockProfiles } from '../types/discover'
 import type { DiscoverProfile } from '../types/discover'
 
 const notifications = useNotificationsStore()
+const auth = useAuthStore()
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+const controller = new AbortController()
+const loading = ref(!useMocks)
+const saving = ref(false)
+const error = ref('')
+let animation: ReturnType<typeof setTimeout> | undefined
 
-const profiles = ref<DiscoverProfile[]>([...mockProfiles])
+const profiles = ref<DiscoverProfile[]>(useMocks ? [...mockProfiles] : [])
 const currentIndex = ref(0)
 const leaving = ref<'like' | 'pass' | null>(null)
 const matched = ref<DiscoverProfile | null>(null)
 
 const current = computed(() => profiles.value[currentIndex.value] ?? null)
 
-const act = (type: 'like' | 'pass') => {
-  if (!current.value || leaving.value) return
-  const profile = current.value
-  leaving.value = type
+const showError = (cause: unknown) => {
+  if (controller.signal.aborted) return
+  error.value = cause instanceof DiscoveryError
+    ? cause.message
+    : 'No pudimos conectar con el servidor. Intenta de nuevo.'
+}
 
-  setTimeout(() => {
-    if (type === 'like' && profile.likesYou) {
+const refresh = async () => {
+  if (!auth.token) {
+    error.value = 'Inicia sesión para descubrir perfiles.'
+    loading.value = false
+    return
+  }
+  loading.value = true
+  error.value = ''
+  try {
+    profiles.value = await loadDiscovery(auth.token, controller.signal)
+    currentIndex.value = 0
+  } catch (cause) {
+    showError(cause)
+  } finally {
+    loading.value = false
+  }
+}
+
+const act = async (type: 'like' | 'pass') => {
+  const profile = current.value
+  if (!profile || loading.value || saving.value || leaving.value || matched.value) return
+  if (!useMocks && !auth.token) return
+
+  saving.value = true
+  error.value = ''
+  let didMatch = type === 'like' && profile.likesYou
+  try {
+    if (!useMocks && auth.token) {
+      const result = await saveSwipe(auth.token, profile.id, type, controller.signal)
+      didMatch = !!result.match
+    }
+  } catch (cause) {
+    if (cause instanceof DiscoveryError && cause.status === 409) await refresh()
+    else showError(cause)
+    return
+  } finally {
+    saving.value = false
+  }
+  if (controller.signal.aborted) return
+
+  leaving.value = type
+  animation = setTimeout(() => {
+    if (didMatch) {
       matched.value = profile
       notifications.addMatch(profile)
     }
@@ -108,7 +163,8 @@ const act = (type: 'like' | 'pass') => {
 }
 
 const restart = () => {
-  currentIndex.value = 0
+  if (useMocks) currentIndex.value = 0
+  else void refresh()
 }
 
 const onKey = (e: KeyboardEvent) => {
@@ -121,8 +177,15 @@ const onKey = (e: KeyboardEvent) => {
   if (e.key === 'ArrowLeft') act('pass')
 }
 
-onMounted(() => window.addEventListener('keydown', onKey))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  if (!useMocks) void refresh()
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  controller.abort()
+  clearTimeout(animation)
+})
 </script>
 
 <style scoped>
