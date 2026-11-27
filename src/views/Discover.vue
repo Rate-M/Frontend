@@ -5,6 +5,11 @@
         <img :src="logoUrl" alt="RateM Dating" class="logo-img" />
         <div class="top-actions">
           <NotificationBell />
+                    <router-link to="/chats" class="icon-btn" aria-label="Mensajes">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 5h14a2 2 0 012 2v8a2 2 0 01-2 2h-7l-4.500 3.500V17H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
+            </svg>
+          </router-link>
           <router-link to="/perfil/editar" class="icon-btn" aria-label="Mi perfil">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="8.5" r="3.5" />
