@@ -135,6 +135,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import logoUrl from '../assets/logo.png'
 
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -153,9 +155,9 @@ const showPassword = ref(false)
 const formError = ref('')
 
 const validateEmail = () => {
-  if (!form.email) {
+  if (!form.email.trim()) {
     errors.email = 'El correo es requerido'
-  } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+  } else if (!/\S+@\S+\.\S+/.test(form.email.trim())) {
     errors.email = 'Ingresa un correo válido'
   } else {
     errors.email = ''
@@ -173,6 +175,7 @@ const validatePassword = () => {
 }
 
 const handleLogin = async () => {
+  if (loading.value) return
   formError.value = ''
   validateEmail()
   validatePassword()
@@ -182,16 +185,28 @@ const handleLogin = async () => {
   loading.value = true
 
   try {
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    authStore.login('fake-token', {
-      email: form.email,
-      name: 'Usuario',
-      verified: true
-    })
-    router.push('/descubrir')
-  } catch (error) {
-    console.error('Error al iniciar sesión:', error)
-    formError.value = 'No pudimos iniciar tu sesión. Verifica tus datos e intenta de nuevo.'
+    const email = form.email.trim()
+    if (useMocks) {
+      authStore.login('fake-token', { email, name: 'Usuario', verified: true })
+    } else {
+      const response = await fetch(`${apiUrl}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: form.password }),
+      })
+      const data = await response.json()
+      if (!response.ok || typeof data.token !== 'string' || !data.user?.id) {
+        formError.value = data.message ?? 'No pudimos iniciar tu sesión. Verifica tus datos.'
+        return
+      }
+      authStore.login(data.token, {
+        ...data.user,
+        verified: data.user.verificationStatus === 'approved',
+      })
+    }
+    await router.push('/descubrir')
+  } catch {
+    formError.value = 'No pudimos conectar con el servidor. Intenta de nuevo.'
   } finally {
     loading.value = false
   }
