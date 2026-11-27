@@ -25,6 +25,7 @@
 
       <PlaceCard v-if="selected" :place="selected">
         <template #actions>
+                      <button type="button" class="btn-primary" @click="inviteSelected">Invitar a una cita aquí</button>
           <a class="btn-secondary" :href="selected ? mapsUrl(selected) : '#'" target="_blank" rel="noopener">Cómo llegar</a>
         </template>
       </PlaceCard>
@@ -57,6 +58,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import PlacesMap from '../components/places/PlacesMap.vue'
 import PlaceCard from '../components/places/PlaceCard.vue'
 import CategoryIcon from '../components/places/CategoryIcon.vue'
@@ -65,6 +67,11 @@ import type { Place, PlaceCategory } from '../types/places'
 
 const category = ref<PlaceCategory | 'all'>('all')
 const selectedId = ref<string | null>(null)
+    const router = useRouter()
+
+const inviteSelected = () => {
+  if (selected.value) router.push({ path: '/cita/nueva', query: { lugar: selected.value.id } })
+}
 
 const filters: { key: PlaceCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'Todos' },

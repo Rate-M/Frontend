@@ -34,7 +34,7 @@
         class="invite-btn"
         :class="{ pulse: justUnlocked }"
         :disabled="!unlocked"
-        @click="open = true"
+        @click="goInvite"
       >
         <svg v-if="!unlocked" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
@@ -46,31 +46,24 @@
         </svg>
         Invitar a cita
       </button>
-
-      <p v-if="sentText" class="sent" role="status">{{ sentText }}</p>
     </div>
-
-    <InviteModal v-if="open && conv" :name="conv.name" @close="open = false" @confirm="sendInvite" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import InviteModal from './InviteModal.vue'
+import { useRouter } from 'vue-router'
 import { useChatStore } from '../../stores/chat'
 import { INVITE_MIN_STREAK } from '../../utils/streak'
 
 const props = defineProps<{ conversationId: string }>()
 
 const MIN = INVITE_MIN_STREAK
+const router = useRouter()
 const store = useChatStore()
 
-const conv = computed(() => store.getById(props.conversationId))
 const streak = computed(() => store.streakOf(props.conversationId))
-
-const open = ref(false)
 const justUnlocked = ref(false)
-const sentText = ref('')
 
 const unlocked = computed(() => (streak.value?.days ?? 0) >= MIN)
 const percent = computed(() => Math.min(100, ((streak.value?.days ?? 0) / MIN) * 100))
@@ -108,14 +101,8 @@ watch(unlocked, (now, before) => {
   }
 })
 
-const sendInvite = (p: { day: string; time: string; place: string }) => {
-  store.sendMessage(
-    props.conversationId,
-    `📅 Te invito a una cita: ${p.day} a las ${p.time} en ${p.place}. ¿Qué dices?`
-  )
-  open.value = false
-  sentText.value = 'Invitación enviada ✓'
-  setTimeout(() => (sentText.value = ''), 4000)
+const goInvite = () => {
+  router.push({ path: '/cita/nueva', query: { con: props.conversationId } })
 }
 </script>
 
@@ -240,13 +227,6 @@ const sendInvite = (p: { day: string; time: string; place: string }) => {
 }
 .invite-btn.pulse {
   animation: pulse 1.2s ease-in-out 3;
-}
-
-.sent {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--rm-success);
-  text-align: center;
 }
 
 @keyframes pulse {
