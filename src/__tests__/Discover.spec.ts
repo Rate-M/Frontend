@@ -47,3 +47,40 @@ it('carga perfiles reales, conserva la tarjeta si falla el envío y muestra el m
     view.unmount()
   }
 })
+
+it('pide la ubicación solo tras autorizar, registra el consentimiento y permite retirarlo', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ code: 'LOCATION_REQUIRED' }), { status: 409 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ type: 'location' })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ locationSaved: true })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ profiles: [] })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Revocado' })))
+  vi.stubGlobal('fetch', fetchMock)
+  const getCurrentPosition = vi.fn((success) => success({ coords: { latitude: 25.541, longitude: -103.443 } }))
+  vi.stubGlobal('navigator', { geolocation: { getCurrentPosition } })
+  const pinia = createPinia()
+  useAuthStore(pinia).login('signed-token', { id: 'account-1' })
+  const view = mount(Discover, { global: { plugins: [pinia], stubs: ['RouterLink'] } })
+  try {
+    await flushPromises()
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    const button = (label: string) => view.findAll('button').find((entry) => entry.text() === label)!
+    await button('Autorizar y compartir ubicación').trigger('click')
+    await flushPromises()
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringMatching(/\/consents\/location$/), expect.objectContaining({
+      method: 'POST',
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(3, expect.stringMatching(/\/profiles\/me\/location$/), expect.objectContaining({
+      method: 'PUT', body: JSON.stringify({ latitude: 25.54, longitude: -103.44 }),
+    }))
+    await button('Retirar permiso de ubicación').trigger('click')
+    await flushPromises()
+    expect(fetchMock).toHaveBeenNthCalledWith(5, expect.stringMatching(/\/consents\/location$/), expect.objectContaining({
+      method: 'DELETE',
+    }))
+    expect(button('Autorizar y compartir ubicación').exists()).toBe(true)
+  } finally {
+    view.unmount()
+  }
+})
