@@ -24,17 +24,18 @@
             >
               <img :src="c.photo" alt="" />
               <span class="pname">{{ c.name }}</span>
-              <span v-if="!isUnlocked(c)" class="lock">
+              <span v-if="threshold !== null && !isUnlocked(c)" class="lock">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
                   <path d="M8 10.5V8a4 4 0 018 0v2.5" />
                 </svg>
-                {{ streakDays(c) }}/{{ MIN }}
+                {{ streakDays(c) }}/{{ threshold }}
               </span>
             </button>
           </li>
         </ul>
-        <p class="hint">Se desbloquea al llegar a {{ MIN }} días de racha escribiéndose.</p>
+        <p v-if="threshold !== null" class="hint">Se desbloquea al llegar a {{ threshold }} días de racha escribiéndose.</p>
+        <p v-else class="hint">{{ loading ? 'Cargando la configuración de citas…' : 'No se pudo verificar la racha mínima.' }}</p>
       </section>
 
       <section class="block">
@@ -107,14 +108,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import CategoryIcon from '../components/places/CategoryIcon.vue'
 import { useChatStore } from '../stores/chat'
 import { useDatesStore } from '../stores/dates'
 import { places, categoryLabels, getPlace } from '../types/places'
 import type { Conversation } from '../types/chat'
-import { computeStreak, INVITE_MIN_STREAK } from '../utils/streak'
+import { computeStreak } from '../utils/streak'
+import { useStreakThreshold } from '../composables/useStreakThreshold'
 import { formatDateTime } from '../utils/dateFormat'
 
 const route = useRoute()
@@ -122,16 +124,19 @@ const router = useRouter()
 const chat = useChatStore()
 const dates = useDatesStore()
 
-const MIN = INVITE_MIN_STREAK
+const { threshold, loading } = useStreakThreshold()
 
 const streakDays = (c: Conversation) => computeStreak(c.messages).days
-const isUnlocked = (c: Conversation) => streakDays(c) >= MIN
+const isUnlocked = (c: Conversation) => threshold.value !== null && streakDays(c) >= threshold.value
 
 const qCon = typeof route.query.con === 'string' ? route.query.con : ''
 const qLugar = typeof route.query.lugar === 'string' ? route.query.lugar : ''
 
 const initialConv = chat.getById(qCon)
-const convId = ref(initialConv && isUnlocked(initialConv) ? initialConv.id : '')
+const convId = ref('')
+watch(threshold, () => {
+  if (!convId.value && initialConv && isUnlocked(initialConv)) convId.value = initialConv.id
+}, { immediate: true })
 const placeId = ref(getPlace(qLugar)?.id ?? '')
 const dayKey = ref('')
 const time = ref('')
@@ -170,12 +175,12 @@ const startsAt = computed(() => {
   return start.getTime()
 })
 
-const ready = computed(() => !!person.value && !!place.value && startsAt.value > 0)
+const ready = computed(() => !!person.value && isUnlocked(person.value) && !!place.value && startsAt.value > 0)
 
 const submit = () => {
   const p = person.value
   const pl = place.value
-  if (!p || !pl || !startsAt.value) return
+  if (!ready.value || !p || !pl) return
 
   dates.send({
     conversationId: p.id,

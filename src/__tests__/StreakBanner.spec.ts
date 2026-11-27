@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
+import { ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import StreakBanner from '../components/chat/StreakBanner.vue'
 import { useChatStore } from '../stores/chat'
 import type { ChatMessage } from '../types/chat'
+
+const threshold = ref<number | null>(3)
+vi.mock('../composables/useStreakThreshold', () => ({
+  useStreakThreshold: () => ({ threshold, loading: ref(false) }),
+}))
 
 const conversationId = 'match-de-prueba'
 const now = new Date(2026, 10, 27, 12)
@@ -34,7 +40,10 @@ function renderBanner(messages: ChatMessage[], exists = true) {
   })
 }
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  threshold.value = 3
+  vi.useRealTimers()
+})
 
 describe('Indicador de racha del chat', () => {
   it('muestra los días consecutivos y señala cuando ambos ya escribieron hoy', () => {
@@ -59,6 +68,27 @@ describe('Indicador de racha del chat', () => {
     expect(banner.text()).toContain('Sin racha por ahora')
     expect(banner.find('.count').exists()).toBe(false)
     expect(banner.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('0')
+    banner.unmount()
+  })
+
+  it('habilita la invitación cuando alcanza el umbral configurado', () => {
+    threshold.value = 5
+    const banner = renderBanner([0, 1, 2, 3].flatMap((day) => messagesOn(day, 'me', 'them')))
+    expect(banner.get('.invite-btn').attributes('disabled')).toBeDefined()
+    expect(banner.get('[role="progressbar"]').attributes('aria-valuemax')).toBe('5')
+    banner.unmount()
+
+    threshold.value = 4
+    const unlocked = renderBanner([0, 1, 2, 3].flatMap((day) => messagesOn(day, 'me', 'them')))
+    expect(unlocked.get('.invite-btn').attributes('disabled')).toBeUndefined()
+    unlocked.unmount()
+  })
+
+  it('mantiene la invitación bloqueada si no hay umbral disponible', () => {
+    threshold.value = null
+    const banner = renderBanner([0, 1, 2, 3, 4].flatMap((day) => messagesOn(day, 'me', 'them')))
+    expect(banner.get('.invite-btn').attributes('disabled')).toBeDefined()
+    expect(banner.text()).toContain('No se pudo verificar la racha mínima')
     banner.unmount()
   })
 

@@ -17,11 +17,12 @@
 
     <div class="invite">
       <div
+        v-if="threshold !== null"
         class="progress"
         role="progressbar"
-        :aria-valuenow="Math.min(streak.days, MIN)"
+        :aria-valuenow="Math.min(streak.days, threshold)"
         aria-valuemin="0"
-        :aria-valuemax="MIN"
+        :aria-valuemax="threshold"
         aria-label="Progreso para desbloquear Invitar a cita"
       >
         <span :style="{ width: percent + '%' }" />
@@ -54,19 +55,21 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useChatStore } from '../../stores/chat'
-import { INVITE_MIN_STREAK } from '../../utils/streak'
+import { useStreakThreshold } from '../../composables/useStreakThreshold'
 
 const props = defineProps<{ conversationId: string }>()
 
-const MIN = INVITE_MIN_STREAK
+const { threshold, loading } = useStreakThreshold()
 const router = useRouter()
 const store = useChatStore()
 
 const streak = computed(() => store.streakOf(props.conversationId))
 const justUnlocked = ref(false)
 
-const unlocked = computed(() => (streak.value?.days ?? 0) >= MIN)
-const percent = computed(() => Math.min(100, ((streak.value?.days ?? 0) / MIN) * 100))
+const unlocked = computed(() => threshold.value !== null && (streak.value?.days ?? 0) >= threshold.value)
+const percent = computed(() => threshold.value === null
+  ? 0
+  : Math.min(100, ((streak.value?.days ?? 0) / threshold.value) * 100))
 
 const state = computed(() => {
   if (!streak.value) return 'none'
@@ -90,7 +93,9 @@ const sub = computed(() => {
 
 const hint = computed(() => {
   if (unlocked.value) return '¡Desbloqueado! Ya pueden planear su cita.'
-  const left = MIN - (streak.value?.days ?? 0)
+  if (loading.value) return 'Cargando la configuración de citas…'
+  if (threshold.value === null) return 'No se pudo verificar la racha mínima.'
+  const left = threshold.value - (streak.value?.days ?? 0)
   return `Faltan ${left} ${left === 1 ? 'día' : 'días'} de racha para desbloquear "Invitar a cita".`
 })
 
@@ -102,6 +107,7 @@ watch(unlocked, (now, before) => {
 })
 
 const goInvite = () => {
+  if (!unlocked.value) return
   router.push({ path: '/cita/nueva', query: { con: props.conversationId } })
 }
 </script>

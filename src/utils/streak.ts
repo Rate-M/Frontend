@@ -1,7 +1,5 @@
 import type { ChatMessage } from '../types/chat'
 
-export const INVITE_MIN_STREAK = 7
-
 export interface StreakInfo {
   days: number
   doneToday: boolean
