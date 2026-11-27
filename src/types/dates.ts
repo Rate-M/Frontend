@@ -24,6 +24,13 @@ export interface GpsCheck {
 
 export type GpsScenario = 'both' | 'nosignal' | 'far' | 'late'
 
+export interface DateReview {
+  rating: number
+  tags: string[]
+  comment: string
+  createdAt: number
+}
+
 export interface DateInvitation {
   id: string
   conversationId: string
@@ -36,4 +43,6 @@ export interface DateInvitation {
   attendance: Attendance
   gps?: GpsCheck
   manual?: { me: boolean; them: boolean }
+  review?: DateReview
+  theirReview?: DateReview
 }

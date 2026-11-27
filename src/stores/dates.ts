@@ -20,7 +20,7 @@ const inDays = (days: number, hour: number) => {
 export const useDatesStore = defineStore('dates', () => {
   const chat = useChatStore()
 
-  
+
   const invitations = ref<DateInvitation[]>([
     {
       id: 'd-seed-1',
@@ -68,7 +68,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 2 * DAY
     },
     {
-      
+     
       id: 'd-seed-5',
       conversationId: 'c2',
       direction: 'received',
@@ -80,7 +80,7 @@ export const useDatesStore = defineStore('dates', () => {
       createdAt: Date.now() - 3 * DAY
     },
     {
-
+     
       id: 'd-seed-6',
       conversationId: 'c4',
       direction: 'sent',
@@ -138,6 +138,7 @@ export const useDatesStore = defineStore('dates', () => {
     return invitation
   }
 
+
   const respond = (id: string, status: Exclude<DateStatus, 'pending'>) => {
     const invitation = getById(id)
     if (!invitation || invitation.direction !== 'received' || invitation.status !== 'pending') return
@@ -153,6 +154,7 @@ export const useDatesStore = defineStore('dates', () => {
     )
   }
 
+ 
   const verify = (id: string, scenario: GpsScenario) => {
     const invitation = getById(id)
     if (!invitation || invitation.status !== 'accepted') return
@@ -200,6 +202,26 @@ export const useDatesStore = defineStore('dates', () => {
     }, 3500)
   }
 
+  const submitReview = (id: string, p: { rating: number; tags: string[]; comment: string }) => {
+    const invitation = getById(id)
+    if (!invitation || invitation.review) return
+    if (invitation.attendance !== 'verified' && invitation.attendance !== 'manual_confirmed') return
+
+    invitation.review = {
+      rating: p.rating,
+      tags: p.tags,
+      comment: p.comment.trim(),
+      createdAt: Date.now()
+    }
+
+    invitation.theirReview = {
+      rating: 5,
+      tags: ['Amable', 'Buena conversación'],
+      comment: 'Fue una cita muy agradable, gracias por la buena plática 😊',
+      createdAt: Date.now() - 2 * HOUR
+    }
+  }
+
   return {
     invitations,
     pendingReceivedCount,
@@ -208,6 +230,7 @@ export const useDatesStore = defineStore('dates', () => {
     send,
     respond,
     verify,
-    confirmManually
+    confirmManually,
+    submitReview
   }
 })
