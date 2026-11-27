@@ -3,7 +3,8 @@ import type { ChatMessage, Conversation } from '../types/chat'
 
 const apiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '')
 
-interface ApiMessage {
+export interface ApiMessage {
+  matchId: string
   id: string
   senderId: string
   text: string
@@ -44,7 +45,7 @@ async function allPages<T>(
   return result
 }
 
-function messageFromApi(message: ApiMessage, userId: string): ChatMessage {
+export function messageFromApi(message: ApiMessage, userId: string): ChatMessage {
   const from = message.senderId === userId ? 'me' : 'them'
   return {
     id: message.id, from, text: message.text, sentAt: Date.parse(message.createdAt),
