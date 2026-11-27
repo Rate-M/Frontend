@@ -87,6 +87,7 @@
           <p>{{ failReason }}</p>
         </template>
 
+                <ManualConfirm :invitation-id="invitation.id" />
       </section>
 
       <template v-if="canRun">
@@ -125,7 +126,7 @@ import { ref, computed, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '../stores/chat'
 import { useDatesStore } from '../stores/dates'
-// RM-57: aquí va el import de ManualConfirm
+import ManualConfirm from '../components/dates/ManualConfirm.vue'
 import { getPlace } from '../types/places'
 import { GEOFENCE_M, TIME_TOLERANCE_MIN } from '../types/dates'
 import type { GpsPoint, GpsScenario } from '../types/dates'
