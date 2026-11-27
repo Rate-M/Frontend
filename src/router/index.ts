@@ -23,7 +23,7 @@ const routes = [
   { path: '/login', name: 'Login', component: Login },
   { path: '/registro', name: 'Register', component: Register },
   { path: '/recuperar', name: 'ForgotPassword', component: ForgotPassword },
-  { path: '/cambiar-contrasena/:token', name: 'ResetPassword', component: ResetPassword },
+  { path: '/cambiar-contrasena/:token', name: 'ResetPassword', component: ResetPassword, alias: '/recuperar/:token' },
   { path: '/confirmar-correo', name: 'VerifyEmail', component: VerifyEmailView },
   { path: '/confirmar-correo/:token', name: 'EmailConfirmed', component: EmailConfirmedView },
   { path: '/verificacion', name: 'Verification', component: VerificationView },
