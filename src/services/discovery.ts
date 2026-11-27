@@ -7,7 +7,7 @@ type PublicProfile = Pick<DiscoverProfile, 'name' | 'age' | 'distanceKm' | 'bio'
 }
 
 export class DiscoveryError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly code?: string) {
     super(message)
   }
 }
@@ -19,7 +19,7 @@ async function request<T>(path: string, token: string, options?: RequestInit): P
   })
   const data = await response.json().catch(() => null)
   if (!response.ok || !data) {
-    throw new DiscoveryError(data?.message ?? 'No pudimos completar la solicitud.', response.status)
+    throw new DiscoveryError(data?.message ?? 'No pudimos completar la solicitud.', response.status, data?.code)
   }
   return data
 }
@@ -44,4 +44,24 @@ export function saveSwipe(token: string, to: string, action: 'like' | 'pass', si
     body: JSON.stringify({ to, action }),
     signal,
   })
+}
+
+export async function shareDiscoveryLocation(
+  token: string,
+  { latitude, longitude }: GeolocationCoordinates,
+  signal: AbortSignal,
+  onConsentGranted: () => void,
+) {
+  await request('/consents/location', token, { method: 'POST', signal })
+  onConsentGranted()
+  await request('/profiles/me/location', token, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ latitude: Number(latitude.toFixed(2)), longitude: Number(longitude.toFixed(2)) }),
+    signal,
+  })
+}
+
+export function revokeDiscoveryLocation(token: string, signal: AbortSignal) {
+  return request('/consents/location', token, { method: 'DELETE', signal })
 }

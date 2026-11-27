@@ -26,6 +26,15 @@
         </div>
       </header>
 
+      <section v-if="needsLocation">
+        <p>Autoriza compartir tu ubicación aproximada para mostrarte perfiles cercanos. Puedes retirar el permiso desde aquí.</p>
+        <button type="button" class="btn-primary" :disabled="changingLocation" @click="shareLocation">
+          {{ changingLocation ? 'Guardando ubicación…' : 'Autorizar y compartir ubicación' }}
+        </button>
+      </section>
+      <button v-if="locationConsent" type="button" class="btn-secondary" :disabled="changingLocation || saving || !!leaving" @click="revokeLocation">
+        Retirar permiso de ubicación
+      </button>
       <p v-if="error" role="alert">{{ error }}</p>
       <p v-if="loading" role="status">Buscando perfiles…</p>
 
@@ -38,7 +47,7 @@
 
         <div class="actions">
           <div class="action">
-            <button type="button" class="round-btn pass-btn" :disabled="!!leaving || saving" aria-label="Pasar" @click="act('pass')">
+            <button type="button" class="round-btn pass-btn" :disabled="!!leaving || saving || changingLocation" aria-label="Pasar" @click="act('pass')">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>
@@ -47,7 +56,7 @@
           </div>
 
           <div class="action">
-            <button type="button" class="round-btn like-btn" :disabled="!!leaving || saving" aria-label="Me gusta" @click="act('like')">
+            <button type="button" class="round-btn like-btn" :disabled="!!leaving || saving || changingLocation" aria-label="Me gusta" @click="act('like')">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M12 21s-7.5-4.6-9.4-9.3C1.2 8.2 3.1 5 6.3 5c2 0 3.5 1.1 4.2 2.4h3C14.2 6.1 15.7 5 17.7 5c3.2 0 5.1 3.2 3.7 6.7C19.5 16.4 12 21 12 21z" />
               </svg>
@@ -59,7 +68,7 @@
         <p class="hint">Tip: usa las flechas ← y → del teclado</p>
       </template>
 
-      <section v-else class="empty">
+      <section v-else-if="!needsLocation" class="empty">
         <div class="empty-icon">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 3.5l2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8L12 3.5z" />
@@ -83,7 +92,7 @@ import ProfileCard from '../components/discover/ProfileCard.vue'
 import MatchModal from '../components/discover/MatchModal.vue'
 import NotificationBell from '../components/notifications/NotificationBell.vue'
 import { useAuthStore } from '../stores/auth'
-import { DiscoveryError, loadDiscovery, saveSwipe } from '../services/discovery'
+import { DiscoveryError, loadDiscovery, saveSwipe, shareDiscoveryLocation, revokeDiscoveryLocation } from '../services/discovery'
 import { useNotificationsStore } from '../stores/notifications'
 import { mockProfiles } from '../types/discover'
 import type { DiscoverProfile } from '../types/discover'
@@ -95,6 +104,9 @@ const controller = new AbortController()
 const loading = ref(!useMocks)
 const saving = ref(false)
 const error = ref('')
+const needsLocation = ref(false)
+const locationConsent = ref(false)
+const changingLocation = ref(false)
 let animation: ReturnType<typeof setTimeout> | undefined
 
 const profiles = ref<DiscoverProfile[]>(useMocks ? [...mockProfiles] : [])
@@ -121,17 +133,66 @@ const refresh = async () => {
   error.value = ''
   try {
     profiles.value = await loadDiscovery(auth.token, controller.signal)
+    needsLocation.value = false
+    locationConsent.value = true
     currentIndex.value = 0
   } catch (cause) {
-    showError(cause)
+    needsLocation.value = cause instanceof DiscoveryError && cause.code === 'LOCATION_REQUIRED'
+    if (!needsLocation.value) showError(cause)
   } finally {
     loading.value = false
   }
 }
 
+const shareLocation = async () => {
+  const token = auth.token
+  if (!token || changingLocation.value) return
+  error.value = ''
+  if (!navigator.geolocation) {
+    error.value = 'El navegador necesita una conexión segura para compartir tu ubicación.'
+    return
+  }
+
+  changingLocation.value = true
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
+    }).catch(() => {
+      throw new DiscoveryError('No pudimos obtener tu ubicación. Revisa los permisos del navegador.', 0)
+    })
+    if (controller.signal.aborted || token !== auth.token) return
+    await shareDiscoveryLocation(token, position.coords, controller.signal, () => {
+      locationConsent.value = true
+    })
+    await refresh()
+  } catch (cause) {
+    showError(cause)
+  } finally {
+    changingLocation.value = false
+  }
+}
+
+const revokeLocation = async () => {
+  const token = auth.token
+  if (!token || changingLocation.value) return
+  error.value = ''
+  changingLocation.value = true
+  try {
+    await revokeDiscoveryLocation(token, controller.signal)
+    locationConsent.value = false
+    needsLocation.value = true
+    profiles.value = []
+    currentIndex.value = 0
+  } catch (cause) {
+    showError(cause)
+  } finally {
+    changingLocation.value = false
+  }
+}
+
 const act = async (type: 'like' | 'pass') => {
   const profile = current.value
-  if (!profile || loading.value || saving.value || leaving.value || matched.value) return
+  if (!profile || loading.value || changingLocation.value || saving.value || leaving.value || matched.value) return
   if (!useMocks && !auth.token) return
 
   saving.value = true
