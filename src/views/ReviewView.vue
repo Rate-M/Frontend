@@ -22,7 +22,18 @@
         <router-link :to="`/cita/${invitation.id}/verificar`" class="btn-primary">Verificar asistencia</router-link>
       </section>
 
-      <template v-else-if="invitation.review">
+      <!-- Las dos reseñas ya están publicadas -->
+      <template v-else-if="state === 'published' && invitation.review && invitation.theirReview">
+        <div class="banner ok" role="status">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+          <div>
+            <strong>¡Reseñas publicadas!</strong>
+            <p>Ambos calificaron, así que ya puedes ver las dos reseñas.</p>
+          </div>
+        </div>
+
         <section class="card">
           <h3>Tu reseña</h3>
           <StarRating :model-value="invitation.review.rating" readonly :size="26" />
@@ -32,7 +43,7 @@
           <p v-if="invitation.review.comment" class="comment">“{{ invitation.review.comment }}”</p>
         </section>
 
-        <section v-if="invitation.theirReview" class="card their">
+        <section class="card their">
           <h3>Lo que {{ conv.name }} opina de ti</h3>
           <StarRating :model-value="invitation.theirReview.rating" readonly :size="26" />
           <ul v-if="invitation.theirReview.tags.length" class="tags">
@@ -44,7 +55,62 @@
         <router-link to="/citas" class="btn-secondary">Volver a mis citas</router-link>
       </template>
 
+      <!-- Yo ya califiqué, falta la otra persona -->
+      <template v-else-if="state === 'waiting' && invitation.review">
+        <div class="banner wait" role="status">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+            <path d="M8 10.5V8a4 4 0 018 0v2.5" />
+          </svg>
+          <div>
+            <strong>Reseña enviada</strong>
+            <p>Se publicará cuando {{ conv.name }} también califique. Hasta entonces nadie la puede ver.</p>
+          </div>
+        </div>
+
+        <section class="card">
+          <div class="card-head">
+            <h3>Tu reseña</h3>
+            <span class="lock-badge">Privada</span>
+          </div>
+          <StarRating :model-value="invitation.review.rating" readonly :size="26" />
+          <ul v-if="invitation.review.tags.length" class="tags">
+            <li v-for="t in invitation.review.tags" :key="t">{{ t }}</li>
+          </ul>
+          <p v-if="invitation.review.comment" class="comment">“{{ invitation.review.comment }}”</p>
+        </section>
+
+        <section class="card sealed">
+          <div class="card-head">
+            <h3>La reseña de {{ conv.name }}</h3>
+            <span class="lock-badge">Pendiente</span>
+          </div>
+          <p class="sealed-text">Aún no ha calificado. Aparecerá aquí en cuanto lo haga.</p>
+        </section>
+
+        <div class="demo">
+          <p class="demo-title">Solo diseño · Simular</p>
+          <button type="button" class="demo-btn" @click="dates.simulateTheirReview(invitation.id)">
+            Simular que {{ conv.name }} califica
+          </button>
+        </div>
+
+        <router-link to="/citas" class="btn-secondary">Volver a mis citas</router-link>
+      </template>
+
+      <!-- Formulario para calificar -->
       <form v-else class="form" @submit.prevent="submit">
+        <div v-if="invitation.theirReview" class="banner wait" role="status">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="10.5" width="14" height="10" rx="2.5" />
+            <path d="M8 10.5V8a4 4 0 018 0v2.5" />
+          </svg>
+          <div>
+            <strong>{{ conv.name }} ya calificó</strong>
+            <p>Verás su reseña en cuanto envíes la tuya.</p>
+          </div>
+        </div>
+
         <fieldset class="block">
           <legend class="label">¿Cómo estuvo la cita?</legend>
           <StarRating v-model="rating" />
@@ -77,7 +143,9 @@
           <span class="counter">{{ comment.length }}/300</span>
         </div>
 
-        <p class="note">Las reseñas son mutuas: la otra persona verá tu calificación y tú verás la suya.</p>
+        <p class="note">
+          Las reseñas se publican solo cuando ambos hayan calificado. Antes de eso, nadie puede ver la tuya.
+        </p>
 
         <button type="submit" class="btn-primary" :disabled="!rating">Enviar reseña</button>
       </form>
@@ -98,6 +166,7 @@ import { useChatStore } from '../stores/chat'
 import { useDatesStore } from '../stores/dates'
 import { getPlace } from '../types/places'
 import { formatDateTime } from '../utils/dateFormat'
+import { reviewState } from '../utils/reviews'
 
 const route = useRoute()
 const router = useRouter()
@@ -107,6 +176,7 @@ const dates = useDatesStore()
 const invitation = computed(() => dates.getById(route.params.id as string))
 const place = computed(() => (invitation.value ? getPlace(invitation.value.placeId) : undefined))
 const conv = computed(() => (invitation.value ? chat.getById(invitation.value.conversationId) : undefined))
+const state = computed(() => (invitation.value ? reviewState(invitation.value) : 'to_write'))
 
 const eligible = computed(() => {
   const a = invitation.value?.attendance
@@ -143,6 +213,7 @@ const submit = () => {
     tags: tags.value,
     comment: comment.value
   })
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 </script>
 
@@ -240,6 +311,43 @@ const submit = () => {
   text-align: center;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--rm-border);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.banner strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.banner p {
+  color: var(--rm-text-body);
+}
+.banner.ok {
+  background: var(--rm-success-bg);
+  border-color: var(--rm-success);
+}
+.banner.ok svg,
+.banner.ok strong {
+  color: var(--rm-success);
+}
+.banner.wait {
+  background: #fdf3f2;
+  border-color: var(--rm-btn-secondary);
+}
+.banner.wait svg {
+  color: var(--rm-accent-dark);
 }
 
 .form {
@@ -347,12 +455,36 @@ textarea:focus {
   background: #fdf3f2;
   border-color: var(--rm-btn-secondary);
 }
+.card.sealed {
+  background: #f6f3f3;
+  border-style: dashed;
+}
+.card-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 .card h3 {
   margin: 0;
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 22px;
   line-height: 1.1;
+}
+.lock-badge {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--rm-btn-secondary);
+  color: var(--rm-accent-dark);
+  font-size: 11px;
+  font-weight: 600;
+}
+.sealed-text {
+  font-size: 14px;
+  color: var(--rm-text-secondary);
 }
 .tags {
   list-style: none;
@@ -373,6 +505,38 @@ textarea:focus {
   font-style: italic;
   line-height: 1.5;
   color: var(--rm-text-body);
+}
+
+.demo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px dashed var(--rm-placeholder);
+}
+.demo-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rm-text-muted);
+}
+.demo-btn {
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--rm-text);
+  background: var(--rm-bg);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rm-text);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.demo-btn:hover {
+  background: var(--rm-text);
+  color: #fff;
 }
 
 .btn-primary,
