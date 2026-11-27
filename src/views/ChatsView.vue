@@ -19,6 +19,7 @@
         <input v-model="query" type="search" placeholder="Buscar conversación" aria-label="Buscar conversación" />
       </div>
 
+            <DatesLink />
       <section v-if="store.newMatches.length && !query.trim()" class="block">
         <h2 class="section-title">Nuevos matches</h2>
         <ul class="matches-row">
@@ -65,6 +66,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import ConversationItem from '../components/chat/ConversationItem.vue'
+import DatesLink from '../components/dates/DatesLink.vue'
 import { useChatStore } from '../stores/chat'
 
 const store = useChatStore()

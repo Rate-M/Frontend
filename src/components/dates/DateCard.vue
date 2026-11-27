@@ -23,13 +23,33 @@
     </ul>
 
     <p v-if="invitation.note" class="note">“{{ invitation.note }}”</p>
+
+    <div v-if="canRespond" class="actions">
+      <template v-if="!confirming">
+        <button type="button" class="btn-accept" @click="accept">Aceptar</button>
+        <button type="button" class="btn-decline" @click="confirming = true">Rechazar</button>
+      </template>
+      <template v-else>
+        <p class="confirm-text">¿Seguro que quieres rechazar esta invitación?</p>
+        <button type="button" class="btn-danger" @click="decline">Sí, rechazar</button>
+        <button type="button" class="btn-decline" @click="confirming = false">Volver</button>
+      </template>
+    </div>
+
+    <p v-else-if="invitation.status === 'accepted'" class="result ok" role="status">
+      ¡Cita confirmada! Nos vemos ahí.
+    </p>
+    <p v-else-if="invitation.status === 'declined'" class="result no" role="status">
+      Rechazaste esta invitación.
+    </p>
   </article>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import CategoryIcon from '../places/CategoryIcon.vue'
 import { useChatStore } from '../../stores/chat'
+import { useDatesStore } from '../../stores/dates'
 import { getPlace } from '../../types/places'
 import type { DateInvitation } from '../../types/dates'
 import { formatDateTime } from '../../utils/dateFormat'
@@ -37,8 +57,15 @@ import { formatDateTime } from '../../utils/dateFormat'
 const props = defineProps<{ invitation: DateInvitation }>()
 
 const chat = useChatStore()
+const dates = useDatesStore()
+
+const confirming = ref(false)
 const conv = computed(() => chat.getById(props.invitation.conversationId))
 const place = computed(() => getPlace(props.invitation.placeId))
+
+const canRespond = computed(
+  () => props.invitation.direction === 'received' && props.invitation.status === 'pending'
+)
 
 const title = computed(() => {
   const name = conv.value?.name ?? 'tu match'
@@ -52,6 +79,13 @@ const statusLabel = computed(() => {
   if (props.invitation.status === 'declined') return 'Rechazada'
   return props.invitation.direction === 'sent' ? 'Esperando respuesta' : 'Pendiente de tu respuesta'
 })
+
+const accept = () => dates.respond(props.invitation.id, 'accepted')
+
+const decline = () => {
+  dates.respond(props.invitation.id, 'declined')
+  confirming.value = false
+}
 </script>
 
 <style scoped>
@@ -135,5 +169,63 @@ const statusLabel = computed(() => {
   font-size: 13px;
   font-style: italic;
   color: var(--rm-text-secondary);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.confirm-text {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.btn-accept,
+.btn-decline,
+.btn-danger {
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-accept {
+  background: var(--rm-text);
+  color: #fff;
+}
+.btn-accept:hover {
+  background: #000;
+}
+.btn-decline {
+  background: var(--rm-btn-secondary);
+  color: var(--rm-text);
+}
+.btn-decline:hover {
+  background: #f3bdb8;
+}
+.btn-danger {
+  background: var(--rm-accent);
+  color: #fff;
+}
+.btn-danger:hover {
+  background: var(--rm-accent-dark);
+}
+
+.result {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.result.ok {
+  color: var(--rm-success);
+}
+.result.no {
+  color: var(--rm-text-muted);
 }
 </style>

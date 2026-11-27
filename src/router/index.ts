@@ -14,6 +14,7 @@ import ChatView from '../views/ChatView.vue'
 import ChatsView from '../views/ChatsView.vue'
 import PlacesView from '../views/PlacesView.vue'
 import DateInviteView from '../views/DateInviteView.vue'
+import DatesView from '../views/DatesView.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -32,6 +33,7 @@ const routes = [
   { path: '/chat/:id', name: 'Chat', component: ChatView },
   { path: '/lugares', name: 'Places', component: PlacesView },
   { path: '/cita/nueva', name: 'DateInvite', component: DateInviteView },
+  { path: '/citas', name: 'Dates', component: DatesView },
 ]
 
 const router = createRouter({
