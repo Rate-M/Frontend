@@ -3,7 +3,7 @@
     <div v-if="store.loading" class="not-found" role="status">Cargando conversación…</div>
     <div v-else-if="store.error" class="not-found" role="alert">
       <p>{{ store.error }}</p>
-      <button type="button" class="btn-primary" @click="store.refresh(String(route.params.id))">Reintentar</button>
+      <button type="button" class="btn-primary" @click="retryConnection++">Reintentar</button>
     </div>
     <div v-else-if="conv" class="chat-shell">
       <header class="chat-head">
@@ -85,7 +85,9 @@
         </div>
       </div>
 
-      <form v-if="store.useMocks" class="composer" @submit.prevent="send">
+      <p v-if="sendError" role="alert">{{ sendError }}</p>
+      <p v-if="!store.useMocks && !connected && !sendError" role="status">Conectando al chat…</p>
+      <form class="composer" @submit.prevent="send">
         <input
           v-model="text"
           type="text"
@@ -94,14 +96,13 @@
           aria-label="Mensaje"
           autocomplete="off"
         />
-        <button type="submit" class="send-btn" :disabled="!text.trim()" aria-label="Enviar mensaje">
+        <button type="submit" class="send-btn" :disabled="!text.trim() || sending || (!store.useMocks && !connected)" aria-label="Enviar mensaje">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
         </button>
       </form>
 
-      <p v-else class="composer">El envío de mensajes estará disponible próximamente.</p>
       <UnmatchModal v-if="confirming" :name="conv.name" @cancel="confirming = false" @confirm="doUnmatch" />
     </div>
 
@@ -118,12 +119,25 @@ import { useRoute, useRouter } from 'vue-router'
 import UnmatchModal from '../components/chat/UnmatchModal.vue'
 import StreakBanner from '../components/chat/StreakBanner.vue'
 import DateInvitations from '../components/dates/DateInvitations.vue'
+import { io, type Socket } from 'socket.io-client'
+import { loadHistory, messageFromApi, type ApiMessage } from '../services/conversations'
+import type { ChatMessage } from '../types/chat'
+import { useAuthStore } from '../stores/auth'
 import { useChatStore } from '../stores/chat'
 import { formatHour } from '../utils/chatTime'
 
 const route = useRoute()
 const router = useRouter()
 const store = useChatStore()
+const auth = useAuthStore()
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
+type SendResult = { ok: true; message: ApiMessage } | { ok: false; error: { message: string } }
+let socket: Socket | undefined
+let pending: { matchId: string; text: string; clientMessageId: string } | undefined
+const connected = ref(false)
+const sending = ref(false)
+const sendError = ref('')
+const retryConnection = ref(0)
 
 const conv = computed(() => store.getById(route.params.id as string))
 const typing = computed(() => !!conv.value && store.typingId === conv.value.id)
@@ -140,14 +154,48 @@ const statusText = computed(() => {
 
 const scrollToBottom = async (smooth = true) => {
   await nextTick()
-  listEl.value?.scrollTo({ top: listEl.value.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+  listEl.value?.scrollTo?.({ top: listEl.value.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
 }
 
-const send = () => {
-  if (!conv.value || !text.value.trim()) return
-  store.sendMessage(conv.value.id, text.value)
-  text.value = ''
-  scrollToBottom()
+const mergeMessages = (id: string, messages: ChatMessage[]) => {
+  const chat = store.getById(id)
+  if (!chat) return
+  const unique = new Map(chat.messages.map((message) => [message.id, message]))
+  for (const message of messages) unique.set(message.id, message)
+  chat.messages = [...unique.values()].sort((a, b) => a.sentAt - b.sentAt || a.id.localeCompare(b.id))
+}
+
+const send = async () => {
+  const id = conv.value?.id
+  const clean = text.value.trim()
+  if (!id || !clean || sending.value) return
+  if (store.useMocks) {
+    store.sendMessage(id, clean)
+    text.value = ''
+    return
+  }
+  const connection = socket
+  if (!connection?.connected) return
+  if (pending?.matchId !== id || pending.text !== clean) {
+    pending = { matchId: id, text: clean, clientMessageId: crypto.randomUUID() }
+  }
+  sendError.value = ''
+  sending.value = true
+  try {
+    const result: SendResult = await connection.timeout(8000).emitWithAck('message:send', pending)
+    if (socket !== connection) return
+    if (!result.ok) {
+      sendError.value = result.error.message
+      return
+    }
+    mergeMessages(id, [messageFromApi(result.message, auth.user.id)])
+    pending = undefined
+    if (text.value.trim() === clean) text.value = ''
+  } catch {
+    if (socket === connection) sendError.value = 'No recibimos confirmación. Puedes reintentar el envío.'
+  } finally {
+    if (socket === connection) sending.value = false
+  }
 }
 
 const askUnmatch = () => {
@@ -171,8 +219,46 @@ watch(
   }
 )
 
-watch(() => route.params.id, (id) => {
-  if (!store.useMocks && typeof id === 'string') void store.refresh(id)
+watch([() => route.params.id, () => auth.token, retryConnection], async ([id, token], _, onCleanup) => {
+  if (store.useMocks || typeof id !== 'string' || !token) return
+  const controller = new AbortController()
+  onCleanup(() => {
+    controller.abort()
+    socket?.disconnect()
+    socket = undefined
+    pending = undefined
+    connected.value = false
+    sending.value = false
+    sendError.value = ''
+    text.value = ''
+  })
+  await store.refresh(id)
+  if (controller.signal.aborted || !store.getById(id)) return
+  const userId = auth.user.id
+  const connection = io(new URL(apiUrl, window.location.origin).origin, { auth: { token } })
+  socket = connection
+  connection.on('connect', async () => {
+    connected.value = true
+    sendError.value = ''
+    try {
+      const history = await loadHistory(token, userId, id, controller.signal)
+      if (!controller.signal.aborted) mergeMessages(id, history)
+    } catch {
+      if (!controller.signal.aborted) sendError.value = 'No pudimos actualizar el historial del chat.'
+    }
+  })
+  connection.on('disconnect', () => {
+    connected.value = false
+    if (!connection.active && !controller.signal.aborted) {
+      sendError.value = 'La conexión se cerró. Vuelve a abrir el chat para reconectar.'
+    }
+  })
+  connection.on('connect_error', () => {
+    sendError.value = 'No pudimos conectar al chat.'
+  })
+  connection.on('message:new', (message: ApiMessage) => {
+    if (message.matchId === id) mergeMessages(id, [messageFromApi(message, userId)])
+  })
 }, { immediate: true })
 
 onMounted(() => {
