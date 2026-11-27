@@ -21,7 +21,6 @@ export const useChatStore = defineStore('chat', () => {
 
   const getById = (id: string) => conversations.value.find((c) => c.id === id)
 
-
   const active = computed(() =>
     conversations.value.filter((c) => c.messages.length > 0).sort((a, b) => lastTs(b) - lastTs(a))
   )
@@ -78,6 +77,14 @@ export const useChatStore = defineStore('chat', () => {
     if (c.online) simulateReply(id)
   }
 
+  const unmatch = (id: string) => {
+    const c = getById(id)
+    if (!c) return
+    conversations.value = conversations.value.filter((x) => x.id !== id)
+    if (typingId.value === id) typingId.value = null
+    setNotice(`Deshiciste el match con ${c.name}`)
+  }
+
   return {
     conversations,
     typingId,
@@ -88,6 +95,7 @@ export const useChatStore = defineStore('chat', () => {
     getById,
     markRead,
     setNotice,
-    sendMessage
+    sendMessage,
+    unmatch
   }
 })

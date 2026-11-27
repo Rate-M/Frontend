@@ -19,7 +19,36 @@
           </div>
         </div>
 
-        <span class="head-spacer" />
+        <div class="menu-wrap">
+          <button
+            type="button"
+            class="icon-btn"
+            aria-label="Más opciones"
+            aria-haspopup="menu"
+            :aria-expanded="menuOpen"
+            @click="menuOpen = !menuOpen"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <circle cx="12" cy="5.500" r="1.600" />
+              <circle cx="12" cy="12" r="1.600" />
+              <circle cx="12" cy="18.500" r="1.600" />
+            </svg>
+          </button>
+
+          <div v-if="menuOpen" class="menu-backdrop" @click="menuOpen = false" />
+          <ul v-if="menuOpen" class="menu" role="menu">
+            <li role="none">
+              <button type="button" role="menuitem" class="menu-item danger" @click="askUnmatch">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 20s-7-4.400-8.800-8.800C2 8 3.800 5 6.800 5c1.900 0 3.200 1 4 2.300" />
+                  <path d="M14.800 5.400C15.500 5.100 16.200 5 16.800 5c3 0 4.800 3 3.600 6.200-.5 1.200-1.400 2.400-2.500 3.500" />
+                  <path d="M4 4l16 16" />
+                </svg>
+                Deshacer match
+              </button>
+            </li>
+          </ul>
+        </div>
       </header>
 
       <div ref="listEl" class="messages" aria-live="polite">
@@ -64,11 +93,13 @@
           </svg>
         </button>
       </form>
+
+      <UnmatchModal v-if="confirming" :name="conv.name" @cancel="confirming = false" @confirm="doUnmatch" />
     </div>
 
     <div v-else class="not-found">
       <h1>Esta conversación ya no existe</h1>
-      <button type="button" class="btn-primary" @click="router.back()">Volver</button>
+      <button type="button" class="btn-primary" @click="router.push('/chats')">Ir a mis mensajes</button>
     </div>
   </div>
 </template>
@@ -76,6 +107,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import UnmatchModal from '../components/chat/UnmatchModal.vue'
 import { useChatStore } from '../stores/chat'
 import { formatHour } from '../utils/chatTime'
 
@@ -88,6 +120,8 @@ const typing = computed(() => !!conv.value && store.typingId === conv.value.id)
 
 const text = ref('')
 const listEl = ref<HTMLElement | null>(null)
+const menuOpen = ref(false)
+const confirming = ref(false)
 
 const statusText = computed(() => {
   if (typing.value) return 'Escribiendo...'
@@ -104,6 +138,19 @@ const send = () => {
   store.sendMessage(conv.value.id, text.value)
   text.value = ''
   scrollToBottom()
+}
+
+const askUnmatch = () => {
+  menuOpen.value = false
+  confirming.value = true
+}
+
+const doUnmatch = async () => {
+  const id = conv.value?.id
+  if (!id) return
+  confirming.value = false
+  await router.replace('/chats')
+  store.unmatch(id)
 }
 
 watch(
@@ -147,13 +194,10 @@ onMounted(() => {
   border-bottom: 1px solid var(--rm-border);
 }
 
-.icon-btn,
-.head-spacer {
+.icon-btn {
   width: 44px;
   height: 44px;
   flex-shrink: 0;
-}
-.icon-btn {
   border-radius: 999px;
   border: 1px solid var(--rm-border);
   background: var(--rm-bg);
@@ -217,6 +261,50 @@ onMounted(() => {
 }
 .status.live {
   color: var(--rm-success);
+}
+
+.menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+.menu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  z-index: 11;
+  min-width: 210px;
+  list-style: none;
+  padding: 6px;
+  border-radius: 18px;
+  background: var(--rm-bg);
+  border: 1px solid var(--rm-border);
+  box-shadow: 0 10px 30px rgba(20, 18, 20, 0.12);
+}
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.menu-item.danger {
+  color: var(--rm-accent);
+}
+.menu-item:hover {
+  background: #fdf3f2;
 }
 
 .messages {
