@@ -63,7 +63,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div v-if="showMockFields" class="field">
           <label for="pf-pronouns">Pronombres</label>
           <div class="input-wrap">
             <input id="pf-pronouns" v-model="form.pronouns" type="text" maxlength="20" placeholder="Ej. ella, él, elle" />
@@ -71,7 +71,7 @@
         </div>
       </div>
 
-      <div class="field">
+      <div v-if="showMockFields" class="field">
         <label for="pf-occupation">Ocupación <span class="optional">(opcional)</span></label>
         <div class="input-wrap">
           <input id="pf-occupation" v-model="form.occupation" type="text" maxlength="60" placeholder="¿A qué te dedicas?" />
@@ -215,7 +215,7 @@
         />
       </div>
 
-      <label class="switch-row">
+      <label v-if="showMockFields" class="switch-row">
         <span class="switch-text">
           <strong>Mostrar mi perfil</strong>
           <small>Si lo desactivas, no aparecerás en el descubrimiento de otras personas.</small>
@@ -276,8 +276,9 @@ const props = withDefaults(
     mode: 'create' | 'edit'
     initial?: ProfileFormData
     loading?: boolean
+    showMockFields?: boolean
   }>(),
-  { loading: false }
+  { loading: false, showMockFields: true }
 )
 
 const emit = defineEmits<{
