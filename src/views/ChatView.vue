@@ -1,6 +1,11 @@
 <template>
   <div class="chat-page">
-    <div v-if="conv" class="chat-shell">
+    <div v-if="store.loading" class="not-found" role="status">Cargando conversación…</div>
+    <div v-else-if="store.error" class="not-found" role="alert">
+      <p>{{ store.error }}</p>
+      <button type="button" class="btn-primary" @click="store.refresh(String(route.params.id))">Reintentar</button>
+    </div>
+    <div v-else-if="conv" class="chat-shell">
       <header class="chat-head">
         <button type="button" class="icon-btn" aria-label="Volver" @click="router.back()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -15,11 +20,11 @@
           </div>
           <div class="who-text">
             <h1>{{ conv.name }}</h1>
-            <span class="status" :class="{ live: conv.online }">{{ statusText }}</span>
+            <span v-if="store.useMocks" class="status" :class="{ live: conv.online }">{{ statusText }}</span>
           </div>
         </div>
 
-        <div class="menu-wrap">
+        <div v-if="store.useMocks" class="menu-wrap">
           <button
             type="button"
             class="icon-btn"
@@ -51,8 +56,8 @@
         </div>
       </header>
 
-            <StreakBanner :conversation-id="conv.id" />
-                  <DateInvitations :conversation-id="conv.id" />
+            <StreakBanner v-if="store.useMocks" :conversation-id="conv.id" />
+                  <DateInvitations v-if="store.useMocks" :conversation-id="conv.id" />
       <div ref="listEl" class="messages" aria-live="polite">
         <div v-if="!conv.messages.length" class="icebreaker">
           <img :src="conv.photo" alt="" class="ice-avatar" />
@@ -80,7 +85,7 @@
         </div>
       </div>
 
-      <form class="composer" @submit.prevent="send">
+      <form v-if="store.useMocks" class="composer" @submit.prevent="send">
         <input
           v-model="text"
           type="text"
@@ -96,6 +101,7 @@
         </button>
       </form>
 
+      <p v-else class="composer">El envío de mensajes estará disponible próximamente.</p>
       <UnmatchModal v-if="confirming" :name="conv.name" @cancel="confirming = false" @confirm="doUnmatch" />
     </div>
 
@@ -164,6 +170,10 @@ watch(
     scrollToBottom()
   }
 )
+
+watch(() => route.params.id, (id) => {
+  if (!store.useMocks && typeof id === 'string') void store.refresh(id)
+}, { immediate: true })
 
 onMounted(() => {
   if (conv.value) {

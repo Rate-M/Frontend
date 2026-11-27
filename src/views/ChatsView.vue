@@ -32,7 +32,12 @@
         </ul>
       </section>
 
-      <section class="block">
+      <p v-if="store.loading" role="status">Cargando conversaciones…</p>
+      <div v-else-if="store.error" role="alert">
+        {{ store.error }}
+        <button type="button" @click="store.refresh()">Reintentar</button>
+      </div>
+      <section v-else class="block">
         <h2 class="section-title">
           Conversaciones
           <span class="count">{{ filtered.length }}</span>
@@ -64,13 +69,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import ConversationItem from '../components/chat/ConversationItem.vue'
 import DatesLink from '../components/dates/DatesLink.vue'
 import { useChatStore } from '../stores/chat'
 
 const store = useChatStore()
 const query = ref('')
+onMounted(() => { void store.refresh() })
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()

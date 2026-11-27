@@ -48,11 +48,14 @@ import { computeStreak } from '../../utils/streak'
 const props = defineProps<{ conversation: Conversation }>()
 
 const last = computed(() => props.conversation.messages[props.conversation.messages.length - 1])
-const streak = computed(() => computeStreak(props.conversation.messages))
+const streak = computed(() => props.conversation.streakDays === undefined
+  ? computeStreak(props.conversation.messages)
+  : { days: props.conversation.streakDays, doneToday: false })
 
 const streakTitle = computed(() => {
   const d = streak.value.days
   const base = `Racha de ${d} ${d === 1 ? 'día' : 'días'}`
+  if (props.conversation.streakDays !== undefined) return base
   return streak.value.doneToday ? `${base} (hoy ya cumplieron)` : `${base} (escribe hoy para mantenerla)`
 })
 </script>
