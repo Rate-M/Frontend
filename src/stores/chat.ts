@@ -1,8 +1,12 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { createMockConversations } from '../types/chat'
 import type { Conversation } from '../types/chat'
 import { computeStreak } from '../utils/streak'
+import { loadConversations, loadHistory } from '../services/conversations'
+import { useAuthStore } from './auth'
+
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 
 const REPLIES = [
   '¡Jaja, qué bien!',
@@ -15,7 +19,48 @@ const REPLIES = [
 const lastTs = (c: Conversation) => c.messages[c.messages.length - 1]?.sentAt ?? 0
 
 export const useChatStore = defineStore('chat', () => {
-  const conversations = ref<Conversation[]>(createMockConversations())
+  const auth = useAuthStore()
+  const conversations = ref<Conversation[]>(useMocks ? createMockConversations() : [])
+  const loading = ref(false)
+  const error = ref('')
+  let request: AbortController | undefined
+
+  watch(() => auth.token, () => {
+    if (useMocks) return
+    request?.abort()
+    request = undefined
+    conversations.value = []
+    loading.value = false
+    error.value = ''
+  }, { flush: 'sync' })
+
+  const refresh = async (matchId?: string) => {
+    if (useMocks) return
+    const token = auth.token
+    const userId = auth.user?.id
+    if (!token || typeof userId !== 'string') {
+      error.value = 'Inicia sesión para ver tus conversaciones.'
+      return
+    }
+    request?.abort()
+    const controller = new AbortController()
+    request = controller
+    loading.value = true
+    error.value = ''
+    try {
+      const matches = await loadConversations(token, userId, controller.signal)
+      const selected = matches.find((match) => match.id === matchId)
+      if (selected) selected.messages = await loadHistory(token, userId, selected.id, controller.signal)
+      if (!controller.signal.aborted) conversations.value = matches
+    } catch {
+      if (!controller.signal.aborted) error.value = 'No pudimos cargar tus conversaciones.'
+    } finally {
+      if (request === controller) {
+        request = undefined
+        loading.value = false
+      }
+    }
+  }
   const typingId = ref<string | null>(null)
   const notice = ref<string | null>(null)
   let noticeTimer: ReturnType<typeof setTimeout> | undefined
@@ -70,7 +115,7 @@ export const useChatStore = defineStore('chat', () => {
   const sendMessage = (id: string, text: string) => {
     const c = getById(id)
     const clean = text.trim()
-    if (!c || !clean) return
+    if (!useMocks || !c || !clean) return
 
     c.messages.push({
       id: `m-${Date.now()}`,
@@ -84,6 +129,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   const unmatch = (id: string) => {
+    if (!useMocks) return
     const c = getById(id)
     if (!c) return
     conversations.value = conversations.value.filter((x) => x.id !== id)
@@ -93,6 +139,10 @@ export const useChatStore = defineStore('chat', () => {
 
   return {
     conversations,
+    useMocks,
+    loading,
+    error,
+    refresh,
     typingId,
     notice,
     active,

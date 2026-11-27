@@ -14,6 +14,7 @@ export interface Conversation {
   photo: string
   online: boolean
   unread: number
+  streakDays?: number
   messages: ChatMessage[]
 }
 
