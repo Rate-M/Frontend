@@ -11,7 +11,7 @@
         </p>
       </div>
 
-      <article class="mail" aria-label="Correo simulado">
+      <article v-if="useMocks" class="mail" aria-label="Correo simulado">
         <header class="mail-head">
           <div class="mail-row">
             <span class="mail-label">De</span>
@@ -45,14 +45,14 @@
       </article>
 
       <div class="resend">
-        <p v-if="resent" class="resent-ok" role="status">
+        <p v-if="useMocks && resent" class="resent-ok" role="status">
           Enviamos un enlace nuevo. El anterior ya no sirve.
         </p>
-        <button type="button" class="btn-ghost" :disabled="cooldown > 0" @click="resend">
+        <button v-if="useMocks" type="button" class="btn-ghost" :disabled="cooldown > 0" @click="resend">
           {{ cooldown > 0 ? `Reenviar correo en ${cooldown} s` : 'Reenviar correo' }}
         </button>
         <button type="button" class="link-btn" @click="useAnotherEmail">Usar otro correo</button>
-        <router-link to="/confirmar-correo/expirado" class="link-btn demo-link">
+        <router-link v-if="useMocks" to="/confirmar-correo/expirado" class="link-btn demo-link">
           Ver cómo se ve un enlace vencido
         </router-link>
       </div>
@@ -66,18 +66,19 @@ import { useRouter } from 'vue-router'
 import logoUrl from '../assets/logo.png'
 import { useAuthStore } from '../stores/auth'
 
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 const COOLDOWN_SECONDS = 30
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-const email = computed(() => authStore.user?.email ?? 'tu@correo.com')
+const email = computed(() => (useMocks ? authStore.user?.email : history.state?.registrationEmail) ?? 'tu correo')
 const firstName = computed(() => {
   const name: string = authStore.user?.name ?? ''
   return name.trim().split(' ')[0] || 'bienvenida'
 })
 
-const token = ref(crypto.randomUUID())
+const token = ref(useMocks ? crypto.randomUUID() : '')
 const confirmLink = computed(() => `/confirmar-correo/${token.value}`)
 
 const cooldown = ref(0)
@@ -105,11 +106,12 @@ const resend = () => {
 }
 
 const useAnotherEmail = () => {
-  authStore.logout()
+  if (useMocks) authStore.logout()
   router.push('/registro')
 }
 
 onMounted(() => {
+  if (!useMocks) return
   if (authStore.user?.emailVerified) {
     router.replace('/verificacion')
     return
