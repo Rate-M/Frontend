@@ -26,12 +26,30 @@ export async function getVerificationStatus(): Promise<VerificationStatus> {
     return normalize(localStorage.getItem('mock_verification_status') ?? 'pending')
   }
 
-  const response = await fetch(`${API_URL}/verification/status`, {
+  const response = await fetch(`${API_URL}/auth/verification-status`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   })
 
   if (response.status === 401) throw new UnauthorizedError()
 
+  if (!response.ok) throw new Error('No pudimos consultar tu verificación.')
+
   const data = (await response.json()) as { verificationStatus: unknown }
   return normalize(data.verificationStatus)
+}
+export async function startIdentityVerification(token: string): Promise<string> {
+  const headers = { Authorization: 'Bearer ' + token }
+  const consent = await fetch(API_URL + '/consents/biometric', { method: 'POST', headers })
+  if (!consent.ok) throw new Error('No pudimos registrar tu autorización biométrica.')
+
+  const response = await fetch(API_URL + '/verification/sessions', { method: 'POST', headers })
+  const data = await response.json().catch(() => null)
+  if (!response.ok || typeof data?.verificationUrl !== 'string') {
+    throw new Error(response.status >= 500
+      ? 'El servicio de verificación no está disponible. Intenta de nuevo más tarde.'
+      : data?.message ?? 'No pudimos iniciar la verificación.')
+  }
+  const verificationUrl = new URL(data.verificationUrl)
+  if (verificationUrl.protocol !== 'https:') throw new Error('El enlace de verificación no es válido.')
+  return verificationUrl.href
 }

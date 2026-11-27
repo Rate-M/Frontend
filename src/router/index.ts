@@ -16,6 +16,8 @@ import PlacesView from '../views/PlacesView.vue'
 import DateInviteView from '../views/DateInviteView.vue'
 import DatesView from '../views/DatesView.vue'
 import VerifyDateView from '../views/VerifyDateView.vue'
+import { useAuthStore } from '../stores/auth'
+import { getVerificationStatus, UnauthorizedError } from '../services/verification.services'
 import ReviewView from '../views/ReviewView.vue'
 
 const routes = [
@@ -43,6 +45,34 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+const profileRoutes = new Set(['Discover', 'ProfileCreate', 'ProfileEdit'])
+
+router.beforeEach(async (to) => {
+  if (useMocks || typeof to.name !== 'string' || !profileRoutes.has(to.name)) return true
+  const auth = useAuthStore()
+  if (!auth.token) return { name: 'Login' }
+
+  try {
+    if (await getVerificationStatus() !== 'approved') return { name: 'Verification' }
+    if (to.name === 'ProfileCreate') return true
+
+    const response = await fetch(apiUrl + '/profiles/me', {
+      headers: { Authorization: 'Bearer ' + auth.token },
+    })
+    if (response.status === 404) return { name: 'ProfileCreate' }
+    if (response.status === 401) throw new UnauthorizedError()
+    return true
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      auth.logout()
+      return { name: 'Login' }
+    }
+    return { name: 'Verification' }
+  }
 })
 
 export default router

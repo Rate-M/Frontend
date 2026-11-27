@@ -91,7 +91,11 @@
         <span v-if="consentError" class="field-error" role="alert">{{ consentError }}</span>
 
         <div class="actions">
-          <button type="button" class="btn-primary" @click="acceptConsent">Empezar</button>
+          <button type="button" class="btn-primary"  :disabled="checking" @click="acceptConsent">Empezar</button>
+          <button v-if="!useMocks" type="button" class="btn-primary" :disabled="checking" @click="checkStatus">
+            Consultar mi verificación
+          </button>
+          <p v-if="statusMessage" role="status">{{ statusMessage }}</p>
         </div>
       </section>
 
@@ -258,12 +262,14 @@ import type { CaptureSlot, DocumentType, VerificationStatus } from '../types/ver
 import { mockVerificationStorage } from '../services/mockVerificationStorage'
 import { useVerificationStore } from '../stores/verification'
 import { useAuthStore } from '../stores/auth'
+import { getVerificationStatus, startIdentityVerification, UnauthorizedError } from '../services/verification.services'
 import { LEGAL_VERSIONS } from '../legal/versions'
 
 type Step = 'consent' | 'document' | 'front' | 'back' | 'selfie' | 'review' | 'processing' | 'result'
 
 // Ajusta esta ruta a la de tu formulario de crear perfil
 const NEXT_ROUTE = '/perfil/crear'
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 
 const PROCESSING_MESSAGES = [
   'Revisando tu documento...',
@@ -279,6 +285,8 @@ const authStore = useAuthStore()
 const step = ref<Step>('consent')
 const consentChecked = ref(false)
 const consentError = ref('')
+const checking = ref(false)
+const statusMessage = ref('')
 const selectedType = ref<DocumentType | ''>('')
 const showLegal = ref<'privacy' | 'terms' | null>(null)
 const storageError = ref('')
@@ -368,13 +376,62 @@ watch(selectedType, () => {
   discard('back')
 })
 
-const acceptConsent = () => {
+const checkStatus = async () => {
+  if (checking.value) return
+  if (!authStore.token) {
+    await router.replace('/login')
+    return
+  }
+  checking.value = true
+  try {
+    const current = await getVerificationStatus()
+    if (current === 'approved') {
+      await router.replace('/descubrir')
+      return
+    }
+    statusMessage.value = current === 'rejected'
+      ? 'La verificación fue rechazada. Puedes volver a intentarlo.'
+      : 'Tu identidad aún no está aprobada. Si ya terminaste en el proveedor, consulta de nuevo en unos minutos.'
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      authStore.logout()
+      await router.replace('/login')
+      return
+    }
+    statusMessage.value = 'No pudimos consultar el estado de tu verificación.'
+  } finally {
+    checking.value = false
+  }
+}
+
+const acceptConsent = async () => {
+  if (checking.value) return
   if (!consentChecked.value) {
     consentError.value = 'Debes dar tu autorización para continuar'
     return
   }
-  verification.grantBiometricConsent(LEGAL_VERSIONS.privacy)
-  next()
+  if (useMocks) {
+    verification.grantBiometricConsent(LEGAL_VERSIONS.privacy)
+    next()
+    return
+  }
+
+  const token = authStore.token
+  if (!token) {
+    await router.replace('/login')
+    return
+  }
+  checking.value = true
+  consentError.value = ''
+  statusMessage.value = ''
+  try {
+    const url = await startIdentityVerification(token)
+    window.location.assign(url)
+  } catch (error) {
+    consentError.value = error instanceof Error ? error.message : 'No pudimos iniciar la verificación.'
+  } finally {
+    checking.value = false
+  }
 }
 
 const onCaptured = (dataUrl: string) => {
