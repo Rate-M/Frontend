@@ -15,7 +15,7 @@
       <span v-if="streak.days > 0" class="count">{{ streak.days }}</span>
     </div>
 
-    <div class="invite">
+    <div v-if="persistedDays === undefined" class="invite">
       <div
         v-if="threshold !== null"
         class="progress"
@@ -63,7 +63,13 @@ const { threshold, loading } = useStreakThreshold()
 const router = useRouter()
 const store = useChatStore()
 
-const streak = computed(() => store.streakOf(props.conversationId))
+const persistedDays = computed(() => store.getById(props.conversationId)?.streakDays)
+const streak = computed(() => {
+  const days = persistedDays.value
+  return days === undefined
+    ? store.streakOf(props.conversationId)
+    : { days, doneToday: false, alive: days > 0 }
+})
 const justUnlocked = ref(false)
 
 const unlocked = computed(() => threshold.value !== null && (streak.value?.days ?? 0) >= threshold.value)
@@ -86,6 +92,11 @@ const title = computed(() => {
 const sub = computed(() => {
   const s = streak.value
   if (!s) return ''
+  if (persistedDays.value !== undefined) {
+    return s.days > 0
+      ? 'La racha se actualiza al cerrar cada día.'
+      : 'Ambos deben escribir el mismo día para iniciar una racha.'
+  }
   if (s.doneToday) return '¡Hoy ya cumplieron! Vuelvan mañana.'
   if (s.days > 0) return 'Escribe hoy para no perder la racha.'
   return 'Intercambien mensajes hoy para empezar una racha.'
