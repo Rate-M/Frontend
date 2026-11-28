@@ -1,3 +1,4 @@
+import { emptyProfile } from '../types/profile'
 import type { Gender, LookingFor, ProfileFormData, ZodiacSign } from '../types/profile'
 
 const apiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '')
@@ -54,6 +55,48 @@ export function saveProfilePreferences(token: string, data: ProfileFormData) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       minAge: data.ageMin, maxAge: data.ageMax, maxDistanceKm: data.maxDistanceKm,
+    }),
+  })
+}
+
+function formValue<T extends string>(mapping: Record<T, string>, value?: string): T | '' {
+  const match = Object.entries(mapping).find(([, apiValue]) => apiValue === value)
+  return match ? match[0] as T : ''
+}
+
+export async function loadMyProfile(token: string): Promise<ProfileFormData> {
+  const response = await fetch(apiUrl + '/profiles/me', { headers: { Authorization: 'Bearer ' + token } })
+  const profile = await response.json().catch(() => null)
+  if (!response.ok || !profile) throw new Error(profile?.message ?? 'No pudimos cargar tu perfil.')
+  const origin = new URL(apiUrl, window.location.origin).origin
+  return {
+    ...emptyProfile(),
+    displayName: profile.name,
+    gender: formValue(gender, profile.gender),
+    zodiac: formValue(zodiac, profile.zodiacSign),
+    lookingFor: formValue(lookingFor, profile.lookingFor),
+    bio: profile.bio ?? '',
+    interests: profile.interests ?? [],
+    interestedIn: (profile.interestedIn as string[]).map((value) => formValue(gender, value)).filter((value) => value !== ''),
+    photos: (profile.photos as string[]).map((url, index) => ({ id: url, url: new URL(url, origin).href, isPrimary: index === 0 })),
+    ageMin: profile.preferences?.minAge ?? 18,
+    ageMax: profile.preferences?.maxAge ?? 99,
+    maxDistanceKm: profile.preferences?.maxDistanceKm ?? 50,
+  }
+}
+
+export function editMyProfile(token: string, data: ProfileFormData) {
+  return save('', token, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: data.displayName.trim(),
+      gender: data.gender ? gender[data.gender] : 'prefiero_no_decir',
+      interestedIn: data.interestedIn.map((value) => gender[value]),
+      lookingFor: data.lookingFor ? lookingFor[data.lookingFor] : '',
+      zodiacSign: data.zodiac ? zodiac[data.zodiac] : null,
+      bio: data.bio,
+      interests: data.interests,
     }),
   })
 }

@@ -90,10 +90,11 @@
         <p><strong>{{ reportTypes[detail.type] }} · {{ reportStatuses[detail.status] }}</strong></p>
         <p>ID <code>{{ detail.id }}</code></p>
         <p>{{ detail.reason }}</p>
+        <p v-if="detail.content?.rating">Calificación · {{ detail.content.rating }}/5</p>
         <blockquote v-if="detail.content?.text">{{ detail.content.text }}</blockquote>
         <div v-else-if="detail.content?.name"><strong>{{ detail.content.name }}</strong><p>{{ detail.content.bio }}</p></div>
         <a v-else-if="photoLink" :href="photoLink" target="_blank" rel="noopener noreferrer">Abrir foto reportada</a>
-        <p v-else>El contenido reportado ya no está disponible.</p>
+        <p v-else-if="!detail.content?.rating">El contenido reportado ya no está disponible.</p>
         <section v-if="detail.audit.length" class="audit">
           <h3>Historial de decisiones</h3>
           <ul><li v-for="(entry, index) in detail.audit" :key="index">
@@ -138,7 +139,7 @@ type OperationsSection = 'places' | 'users' | 'verifications' | 'activity'
 type NavigationItem = { label: string; icon: string; type: ReportType | ''; unavailable?: boolean; section?: OperationsSection }
 const section = ref<'reports' | OperationsSection>('reports')
 const navigation: NavigationItem[] = [
-  { label: 'Reportes', icon: reportsIcon, type: '' }, { label: 'Reseñas', icon: reviewsIcon, type: '', unavailable: true },
+  { label: 'Reportes', icon: reportsIcon, type: '' }, { label: 'Reseñas', icon: reviewsIcon, type: 'review' },
   { label: 'Mensajes', icon: messagesIcon, type: 'message' }, { label: 'Lugares', icon: placesIcon, type: '', section: 'places' },
   { label: 'Usuarios', icon: usersIcon, type: '', section: 'users' }, { label: 'Verificaciones', icon: verificationIcon, type: '', section: 'verifications' },
   { label: 'Registro de actividad', icon: activityIcon, type: '', section: 'activity' },

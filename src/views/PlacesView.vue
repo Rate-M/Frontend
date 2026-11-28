@@ -21,62 +21,112 @@
         </li>
       </ul>
 
-      <PlacesMap :places="filtered" :selected-id="selected ? selected.id : null" @select="toggle" />
-
-      <PlaceCard v-if="selected" :place="selected">
-        <template #actions>
-                      <button type="button" class="btn-primary" @click="inviteSelected">Invitar a una cita aquí</button>
-          <a class="btn-secondary" :href="selected ? mapsUrl(selected) : '#'" target="_blank" rel="noopener">Cómo llegar</a>
-        </template>
-      </PlaceCard>
-      <p v-else class="tip">Toca un pin del mapa para ver los detalles del lugar.</p>
-
-      <section class="block">
-        <h2 class="section-title">
-          Cerca de ti
-          <span class="count">{{ sorted.length }}</span>
-        </h2>
-
-        <ul class="list">
-          <li v-for="p in sorted" :key="p.id">
-            <button type="button" class="row" :class="{ active: selected && selected.id === p.id }" @click="toggle(p.id)">
-              <span class="row-icon"><CategoryIcon :category="p.category" :size="20" /></span>
-              <span class="row-text">
-                <strong>{{ p.name }}</strong>
-                <small>{{ categoryLabels[p.category] }} · a {{ p.distanceKm }} km</small>
-              </span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+      <section v-if="!useMocks" class="block">
+        <h2 class="section-title">Cerca de ti</h2>
+        <p v-if="loading" role="status">Buscando lugares…</p>
+        <div v-else-if="error" role="alert">
+          <p>{{ error }}</p>
+          <button type="button" class="chip" @click="attempt++">Reintentar</button>
+        </div>
+        <p v-else-if="!nearby.length">No encontramos lugares en esta categoría.</p>
+        <ul v-else class="list">
+          <li v-for="place in nearby" :key="place.id">
+            <h3>{{ place.name }}</h3>
+            <p>{{ place.address }}</p>
+            <div class="real-actions">
+              <router-link class="btn-primary" :to="{ path: '/cita/nueva', query: { lugar: place.id, categoria: place.category } }">Invitar aquí</router-link>
+              <a class="btn-secondary" :href="mapsUrl(place)" target="_blank" rel="noopener">Cómo llegar</a>
+            </div>
           </li>
         </ul>
       </section>
+
+      <template v-else>
+        <PlacesMap :places="filtered" :selected-id="selected ? selected.id : null" @select="toggle" />
+
+        <PlaceCard v-if="selected" :place="selected">
+          <template #actions>
+            <button type="button" class="btn-primary" @click="inviteSelected">Invitar a una cita aquí</button>
+            <a class="btn-secondary" :href="selected ? mapsUrl(selected) : '#'" target="_blank" rel="noopener">Cómo llegar</a>
+          </template>
+        </PlaceCard>
+        <p v-else class="tip">Toca un pin del mapa para ver los detalles del lugar.</p>
+
+        <section class="block">
+          <h2 class="section-title">
+            Cerca de ti
+            <span class="count">{{ sorted.length }}</span>
+          </h2>
+
+          <ul class="list">
+            <li v-for="p in sorted" :key="p.id">
+              <button type="button" class="row" :class="{ active: selected && selected.id === p.id }" @click="toggle(p.id)">
+                <span class="row-icon"><CategoryIcon :category="p.category" :size="20" /></span>
+                <span class="row-text">
+                  <strong>{{ p.name }}</strong>
+                  <small>{{ categoryLabels[p.category] }} · a {{ p.distanceKm }} km</small>
+                </span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </li>
+          </ul>
+        </section>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PlacesMap from '../components/places/PlacesMap.vue'
 import PlaceCard from '../components/places/PlaceCard.vue'
 import CategoryIcon from '../components/places/CategoryIcon.vue'
 import { places, categoryLabels } from '../types/places'
-import type { Place, PlaceCategory } from '../types/places'
+import type { PlaceCategory } from '../types/places'
+import { useAuthStore } from '../stores/auth'
+import { loadDatePlaces, type DatePlace } from '../services/datePlaces'
 
-const category = ref<PlaceCategory | 'all'>('all')
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+const auth = useAuthStore()
+const category = ref<PlaceCategory | 'all'>(useMocks ? 'all' : 'cafe')
+const nearby = ref<DatePlace[]>([])
+const loading = ref(false)
+const error = ref('')
+const attempt = ref(0)
+
+watch([category, () => auth.token, attempt], async ([selectedCategory, token], _, onCleanup) => {
+  if (useMocks || selectedCategory === 'all' || selectedCategory === 'museo') return
+  nearby.value = []
+  error.value = ''
+  loading.value = !!token
+  if (!token) return
+
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  try {
+    const places = await loadDatePlaces(token, selectedCategory, controller.signal)
+    if (!controller.signal.aborted) nearby.value = places
+  } catch (cause) {
+    if (!controller.signal.aborted) error.value = cause instanceof Error ? cause.message : 'No pudimos consultar lugares.'
+  } finally {
+    if (!controller.signal.aborted) loading.value = false
+  }
+}, { immediate: true })
 const selectedId = ref<string | null>(null)
-    const router = useRouter()
+const router = useRouter()
 
 const inviteSelected = () => {
   if (selected.value) router.push({ path: '/cita/nueva', query: { lugar: selected.value.id } })
 }
 
-const filters: { key: PlaceCategory | 'all'; label: string }[] = [
+const allFilters: { key: PlaceCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'Todos' },
   ...(Object.keys(categoryLabels) as PlaceCategory[]).map((key) => ({ key, label: categoryLabels[key] }))
 ]
+const filters = allFilters.filter(({ key }) => useMocks || (key !== 'all' && key !== 'museo'))
 
 const filtered = computed(() =>
   category.value === 'all' ? places : places.filter((p) => p.category === category.value)
@@ -88,11 +138,16 @@ const toggle = (id: string) => {
   selectedId.value = selectedId.value === id ? null : id
 }
 
-const mapsUrl = (p: Place) =>
+const mapsUrl = (p: { name: string; address: string }) =>
   `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.name} ${p.address}`)}`
 </script>
 
 <style scoped>
+.real-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .places-page {
   min-height: 100vh;
   display: flex;

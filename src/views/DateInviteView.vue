@@ -145,7 +145,10 @@ const dates = useDatesStore()
 const auth = useAuthStore()
 const sending = ref(false)
 const sendError = ref('')
-const category = ref<DatePlace['category']>('cafe')
+const requestedCategory = route.query.categoria
+const category = ref<DatePlace['category']>(
+  requestedCategory === 'parque' || requestedCategory === 'restaurante' ? requestedCategory : 'cafe',
+)
 const nearbyPlaces = ref<DatePlace[]>([])
 const loadingPlaces = ref(false)
 const placeError = ref('')

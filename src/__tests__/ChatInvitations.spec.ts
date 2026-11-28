@@ -21,7 +21,7 @@ it('consulta invitaciones y confirma la respuesta usando la revisión recibida',
   vi.stubGlobal('fetch', request)
   const pinia = createPinia()
   useAuthStore(pinia).login('jwt', { id: 'me' })
-  const view = mount(ChatInvitations, { props: { matchId: 'match' }, global: { plugins: [pinia] } })
+  const view = mount(ChatInvitations, { props: { matchId: 'match' }, global: { plugins: [pinia], stubs: ['DateCheckin'] } })
   try {
     await flushPromises()
     await view.findAll('button').find((button) => button.text() === 'Aceptar')!.trigger('click')
