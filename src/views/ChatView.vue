@@ -71,9 +71,9 @@
             <p>{{ m.text }}</p>
             <span class="meta">
               {{ formatHour(m.sentAt) }}
-              <svg v-if="m.from === 'me'" class="tick" :class="{ read: m.status === 'read' }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <svg v-if="m.from === 'me'" class="tick" role="img" :aria-label="isRead(m) ? 'Leído' : 'Enviado'" :class="{ read: isRead(m) }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 12.5l4 4L16 8" />
-                <path v-if="m.status === 'read'" d="M12 14.5l1.5 1.5L21 8" />
+                <path v-if="isRead(m)" d="M12 14.5l1.5 1.5L21 8" />
               </svg>
             </span>
           </div>
@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import UnmatchModal from '../components/chat/UnmatchModal.vue'
 import StreakBanner from '../components/chat/StreakBanner.vue'
@@ -142,6 +142,14 @@ const sendError = ref('')
 const retryConnection = ref(0)
 
 const conv = computed(() => store.getById(route.params.id as string))
+type Receipt = { matchId: string; readerId: string; messageId: string }
+let reading: string | undefined
+const isRead = (message: ChatMessage) => {
+  if (store.useMocks) return message.status === 'read'
+  const cursor = conv.value?.readThrough?.other
+  return !!cursor && message.id <= cursor
+}
+
 const typing = computed(() => !!conv.value && store.typingId === conv.value.id)
 
 const text = ref('')
@@ -167,6 +175,43 @@ const mergeMessages = (id: string, messages: ChatMessage[]) => {
   const unique = new Map(chat.messages.map((message) => [message.id, message]))
   for (const message of messages) unique.set(message.id, message)
   chat.messages = [...unique.values()].sort((a, b) => a.sentAt - b.sentAt || a.id.localeCompare(b.id))
+}
+
+const advanceRead = (id: string, side: 'me' | 'other', messageId: string | null) => {
+  const conversation = store.getById(id)
+  if (!conversation || !messageId) return
+  const cursors = conversation.readThrough ?? { me: null, other: null }
+  const previous = cursors[side]
+  if (!previous || messageId > previous) conversation.readThrough = { ...cursors, [side]: messageId }
+}
+
+const markVisibleRead = async () => {
+  const conversation = conv.value
+  const connection = socket
+  if (store.useMocks || !conversation || !connection?.connected || document.hidden ||
+    !document.hasFocus() || reading) return
+
+  const last = conversation.messages.reduce<string | null>((latest, message) =>
+    message.from === 'them' && (!latest || message.id > latest) ? message.id : latest, null)
+  if (!last || last <= (conversation.readThrough?.me ?? '')) return
+  reading = last
+  let acknowledged = false
+  try {
+    const response = await connection.timeout(5000).emitWithAck('message:read', {
+      matchId: conversation.id, messageId: last,
+    })
+    if (socket === connection && response.ok) {
+      advanceRead(conversation.id, 'me', response.receipt.messageId)
+      acknowledged = true
+    }
+  } catch {
+    // La siguiente reconexión o interacción puede volver a intentar.
+  } finally {
+    if (socket === connection) {
+      reading = undefined
+      if (acknowledged) void markVisibleRead()
+    }
+  }
 }
 
 const send = async () => {
@@ -245,6 +290,7 @@ watch([() => route.params.id, () => auth.token, retryConnection], async ([id, to
     sending.value = false
     sendError.value = ''
     text.value = ''
+    reading = undefined
   })
   await store.refresh(id)
   if (controller.signal.aborted || !store.getById(id)) return
@@ -256,7 +302,12 @@ watch([() => route.params.id, () => auth.token, retryConnection], async ([id, to
     sendError.value = ''
     try {
       const history = await loadHistory(token, userId, id, controller.signal)
-      if (!controller.signal.aborted) mergeMessages(id, history)
+      if (!controller.signal.aborted) {
+        mergeMessages(id, history.messages)
+        advanceRead(id, 'me', history.readThrough.me)
+        advanceRead(id, 'other', history.readThrough.other)
+        void markVisibleRead()
+      }
     } catch {
       if (!controller.signal.aborted) sendError.value = 'No pudimos actualizar el historial del chat.'
     }
@@ -270,16 +321,27 @@ watch([() => route.params.id, () => auth.token, retryConnection], async ([id, to
   connection.on('connect_error', () => {
     sendError.value = 'No pudimos conectar al chat.'
   })
+  connection.on('message:read', (receipt: Receipt) => {
+    if (receipt.matchId === id) advanceRead(id, receipt.readerId === userId ? 'me' : 'other', receipt.messageId)
+  })
   connection.on('message:new', (message: ApiMessage) => {
     if (message.matchId === id) mergeMessages(id, [messageFromApi(message, userId)])
   })
 }, { immediate: true })
 
+watch(() => conv.value?.messages, () => { void markVisibleRead() }, { flush: 'post' })
+
 onMounted(() => {
+  document.addEventListener('visibilitychange', markVisibleRead)
+  window.addEventListener('focus', markVisibleRead)
   if (conv.value) {
     store.markRead(conv.value.id)
     scrollToBottom(false)
   }
+})
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', markVisibleRead)
+  window.removeEventListener('focus', markVisibleRead)
 })
 </script>
 
