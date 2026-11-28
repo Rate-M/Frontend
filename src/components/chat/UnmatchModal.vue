@@ -1,5 +1,5 @@
 <template>
-  <div class="overlay" role="alertdialog" aria-modal="true" aria-labelledby="unmatch-title" @click.self="$emit('cancel')">
+  <div class="overlay" role="alertdialog" aria-modal="true" aria-labelledby="unmatch-title" :aria-busy="loading" @click.self="cancel">
     <div class="modal">
       <div class="icon" aria-hidden="true">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -11,12 +11,13 @@
 
       <div class="copy">
         <h2 id="unmatch-title">¿Deshacer match con <em>{{ name }}</em>?</h2>
-        <p>Se eliminará la conversación y ya no podrán escribirse. Esta acción no se puede deshacer.</p>
+        <p>La conversación dejará de estar disponible y no podrán volver a hacer match. Esta acción no se puede deshacer.</p>
       </div>
 
+      <p v-if="error" role="alert">{{ error }}</p>
       <div class="actions">
-        <button type="button" class="btn-danger" @click="$emit('confirm')">Sí, deshacer match</button>
-        <button type="button" class="btn-secondary" @click="$emit('cancel')">Cancelar</button>
+        <button type="button" class="btn-danger" :disabled="loading" @click="$emit('confirm')">{{ loading ? 'Deshaciendo match…' : 'Sí, deshacer match' }}</button>
+        <button type="button" class="btn-secondary" :disabled="loading" @click="cancel">Cancelar</button>
       </div>
     </div>
   </div>
@@ -25,11 +26,15 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
 
-defineProps<{ name: string }>()
+const props = defineProps<{ name: string; loading?: boolean; error?: string }>()
 const emit = defineEmits<{ (e: 'confirm'): void; (e: 'cancel'): void }>()
 
+const cancel = () => {
+  if (!props.loading) emit('cancel')
+}
+
 const onKey = (e: KeyboardEvent) => {
-  if (e.key === 'Escape') emit('cancel')
+  if (e.key === 'Escape') cancel()
 }
 
 onMounted(() => window.addEventListener('keydown', onKey))
