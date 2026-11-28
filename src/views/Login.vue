@@ -204,7 +204,7 @@ const handleLogin = async () => {
         verified: data.user.verificationStatus === 'approved',
       })
     }
-    await router.push('/descubrir')
+    await router.push(['moderator', 'admin'].includes(authStore.user?.role) ? '/soporte/reportes' : '/descubrir')
   } catch {
     formError.value = 'No pudimos conectar con el servidor. Intenta de nuevo.'
   } finally {

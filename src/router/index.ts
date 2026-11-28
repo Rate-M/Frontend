@@ -18,10 +18,12 @@ import DatesView from '../views/DatesView.vue'
 import VerifyDateView from '../views/VerifyDateView.vue'
 import { useAuthStore } from '../stores/auth'
 import { getVerificationStatus, UnauthorizedError } from '../services/verification.services'
+import SupportReportsView from '../views/SupportReportsView.vue'
 import ReviewView from '../views/ReviewView.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
+  { path: '/soporte/reportes', name: 'SupportReports', component: SupportReportsView },
   { path: '/login', name: 'Login', component: Login },
   { path: '/registro', name: 'Register', component: Register },
   { path: '/recuperar', name: 'ForgotPassword', component: ForgotPassword },
@@ -52,6 +54,12 @@ const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 const profileRoutes = new Set(['Discover', 'ProfileCreate', 'ProfileEdit'])
 
 router.beforeEach(async (to) => {
+  if (to.name === 'SupportReports') {
+    const auth = useAuthStore()
+    if (!auth.token) return { name: 'Login' }
+    return ['moderator', 'admin'].includes(auth.user?.role) ? true : { name: 'Discover' }
+  }
+
   if (useMocks || typeof to.name !== 'string' || !profileRoutes.has(to.name)) return true
   const auth = useAuthStore()
   if (!auth.token) return { name: 'Login' }
