@@ -6,7 +6,8 @@
         <h2>Tus fotos</h2>
         <p>Agrega de 1 a 6 fotos. La principal es la que verán primero.</p>
       </div>
-      <PhotoUploader v-model="form.photos" :error="errors.photos" />
+      <PhotoUploader v-if="!isEdit || showMockFields" v-model="form.photos" :error="errors.photos" />
+      <p v-else>Las fotos actuales se conservan al guardar tus cambios.</p>
     </section>
     <section class="form-section">
       <div class="section-head">
@@ -353,7 +354,7 @@ const onInterestKey = (e: KeyboardEvent) => {
 const removeInterest = (index: number) => form.interests.splice(index, 1)
 
 const validatePhotos = () => {
-  errors.photos = form.photos.length < 1 ? 'Agrega al menos una foto' : ''
+  errors.photos = (!isEdit.value || props.showMockFields) && form.photos.length < 1 ? 'Agrega al menos una foto' : ''
 }
 
 const validateName = () => {

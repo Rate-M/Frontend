@@ -8,7 +8,7 @@
 
       <p v-if="formError" class="form-alert" role="alert">{{ formError }}</p>
       <p v-if="success" class="success-message" role="status">
-        ✓ Cambios guardados. Redirigiendo a tu perfil...
+        Cambios guardados.
       </p>
 
       <p v-if="loadingProfile" class="loading-text">Cargando tu perfil...</p>
@@ -18,8 +18,9 @@
         mode="edit"
         :initial="initial"
         :loading="saving"
+        :show-mock-fields="useMocks"
         @submit="handleSave"
-        @cancel="router.push('/perfil')"
+        @cancel="router.push('/descubrir')"
       />
     </div>
   </div>
@@ -28,11 +29,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { editMyProfile, loadMyProfile, saveProfilePreferences } from '../services/profiles'
 import ProfileForm from '../components/profile/ProfileForm.vue'
 import { emptyProfile } from '../types/profile'
 import type { ProfileFormData } from '../types/profile'
 
 const router = useRouter()
+const auth = useAuthStore()
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
 
 const initial = ref<ProfileFormData | null>(null)
 const loadingProfile = ref(true)
@@ -48,7 +53,11 @@ const placeholderPhoto = (label: string) =>
 
 onMounted(async () => {
   try {
-        await new Promise((resolve) => setTimeout(resolve, 600))
+    if (!useMocks) {
+      if (!auth.token) throw new Error('Inicia sesión para editar tu perfil.')
+      initial.value = await loadMyProfile(auth.token)
+      return
+    }
 
     initial.value = {
       ...emptyProfile(),
@@ -72,30 +81,27 @@ onMounted(async () => {
       visible: true
     }
   } catch (error) {
-    console.error('Error:', error)
-    formError.value = 'No pudimos cargar tu perfil. Intenta de nuevo.'
+    formError.value = error instanceof Error ? error.message : 'No pudimos cargar tu perfil.'
   } finally {
     loadingProfile.value = false
   }
 })
 
 const handleSave = async (data: ProfileFormData) => {
+  if (saving.value) return
   formError.value = ''
+  success.value = false
   saving.value = true
-
   try {
-    console.log('Cambios a guardar:', data)
-
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    if (!useMocks) {
+      if (!auth.token) throw new Error('Inicia sesión para editar tu perfil.')
+      await editMyProfile(auth.token, data)
+      await saveProfilePreferences(auth.token, data)
+    }
+    initial.value = data
     success.value = true
-
-    setTimeout(() => {
-      router.push('/perfil')
-    }, 1500)
   } catch (error) {
-    console.error('Error:', error)
-    formError.value = 'No pudimos guardar los cambios. Intenta de nuevo.'
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    formError.value = error instanceof Error ? error.message : 'No pudimos guardar los cambios.'
   } finally {
     saving.value = false
   }
