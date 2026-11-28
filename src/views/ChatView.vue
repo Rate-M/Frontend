@@ -57,7 +57,8 @@
       </header>
 
       <StreakBanner :conversation-id="conv.id" />
-                  <DateInvitations v-if="store.useMocks" :conversation-id="conv.id" />
+      <DateInvitations v-if="store.useMocks" :conversation-id="conv.id" />
+      <ChatInvitations v-else :match-id="conv.id" />
       <div ref="listEl" class="messages" aria-live="polite">
         <div v-if="!conv.messages.length" class="icebreaker">
           <img :src="conv.photo" alt="" class="ice-avatar" />
@@ -118,6 +119,7 @@ import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import UnmatchModal from '../components/chat/UnmatchModal.vue'
 import StreakBanner from '../components/chat/StreakBanner.vue'
+import ChatInvitations from '../components/dates/ChatInvitations.vue'
 import DateInvitations from '../components/dates/DateInvitations.vue'
 import { io, type Socket } from 'socket.io-client'
 import { loadHistory, messageFromApi, type ApiMessage } from '../services/conversations'
