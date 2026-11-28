@@ -50,7 +50,7 @@ export const useChatStore = defineStore('chat', () => {
     try {
       const matches = await loadConversations(token, userId, controller.signal)
       const selected = matches.find((match) => match.id === matchId)
-      if (selected) selected.messages = await loadHistory(token, userId, selected.id, controller.signal)
+      if (selected) Object.assign(selected, await loadHistory(token, userId, selected.id, controller.signal))
       if (!controller.signal.aborted) conversations.value = matches
     } catch {
       if (!controller.signal.aborted) error.value = 'No pudimos cargar tus conversaciones.'

@@ -79,10 +79,16 @@ export async function loadConversations(token: string, userId: string, signal: A
 }
 
 export async function loadHistory(token: string, userId: string, matchId: string, signal: AbortSignal) {
-  const page = await get<{ messages: ApiMessage[]; nextCursor: string | null }>(
+  const page = await get<{
+    messages: ApiMessage[]
+    readThrough?: { me: string | null; other: string | null }
+  }>(
     '/matches/' + encodeURIComponent(matchId) + '/messages', token, signal,
   )
-  return page.messages.map((message) => messageFromApi(message, userId)).reverse()
+  return {
+    messages: page.messages.map((message) => messageFromApi(message, userId)).reverse(),
+    readThrough: page.readThrough ?? { me: null, other: null },
+  }
 }
 
 export async function deleteMatch(token: string, matchId: string) {

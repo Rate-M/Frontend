@@ -15,6 +15,7 @@ export interface Conversation {
   online: boolean
   unread: number
   streakDays?: number
+  readThrough?: { me: string | null; other: string | null }
   messages: ChatMessage[]
 }
 
