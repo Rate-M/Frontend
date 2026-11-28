@@ -27,13 +27,26 @@
         </li>
       </ul>
 
-      <ul v-if="list.length" class="list">
+      <p v-if="loading" role="status">Cargando tus citas…</p>
+      <div v-if="loadError" role="alert">
+        <p>{{ loadError }}</p>
+        <button type="button" class="tab" :disabled="loading" @click="refresh">Reintentar</button>
+      </div>
+      <ul v-if="!useMocks && remoteList.length" class="list">
+        <li v-for="{ invitation, match } in remoteList" :key="invitation.id">
+          <router-link :to="{ name: 'Chat', params: { id: match.id } }">
+            {{ match.name }} · {{ formatDateTime(Date.parse(invitation.startsAt)) }}
+          </router-link>
+          <p v-if="invitation.note">{{ invitation.note }}</p>
+        </li>
+      </ul>
+      <ul v-else-if="useMocks && list.length" class="list">
         <li v-for="i in list" :key="i.id">
           <DateCard :invitation="i" />
         </li>
       </ul>
 
-      <div v-else class="empty">
+      <div v-else-if="!loading && !loadError" class="empty">
         <div class="empty-icon">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
@@ -48,16 +61,63 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import DateCard from '../components/dates/DateCard.vue'
 import { useChatStore } from '../stores/chat'
 import { useDatesStore } from '../stores/dates'
 import type { DateInvitation } from '../types/dates'
+import { useAuthStore } from '../stores/auth'
+import { listInvitations, type ChatInvitation } from '../services/dateInvitations'
+import { loadConversations } from '../services/conversations'
+import { formatDateTime } from '../utils/dateFormat'
 
 type Tab = 'received' | 'sent' | 'accepted' | 'declined'
 
 const chat = useChatStore()
-const dates = useDatesStore()
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+const dates = useMocks ? useDatesStore() : undefined
+const auth = useAuthStore()
+const loading = ref(false)
+const loadError = ref('')
+const entries = ref<{ invitation: ChatInvitation; match: { id: string; name: string } }[]>([])
+let request: AbortController | undefined
+
+async function refresh() {
+  const token = auth.token
+  const userId = auth.user?.id
+  if (!token || typeof userId !== 'string') return
+  request?.abort()
+  const controller = new AbortController()
+  request = controller
+  loading.value = true
+  loadError.value = ''
+  try {
+    const matches = await loadConversations(token, userId, controller.signal)
+    const results = await Promise.allSettled(matches.map(async (match) => {
+      const { invitations } = await listInvitations(match.id, token, controller.signal)
+      return invitations.map((invitation) => ({ match, invitation }))
+    }))
+    if (controller.signal.aborted) return
+    entries.value = results.flatMap((result) => result.status === 'fulfilled' ? result.value : [])
+    if (results.some((result) => result.status === 'rejected')) {
+      loadError.value = 'No pudimos cargar todas tus citas.'
+    }
+  } catch {
+    if (!controller.signal.aborted) loadError.value = 'No pudimos cargar tus citas.'
+  } finally {
+    if (!controller.signal.aborted) loading.value = false
+  }
+}
+
+if (!useMocks) {
+  watch([() => auth.token, () => auth.user?.id], (_, __, onCleanup) => {
+    entries.value = []
+    loading.value = false
+    loadError.value = ''
+    void refresh()
+    onCleanup(() => request?.abort())
+  }, { immediate: true })
+}
 
 const tabs: { key: Tab; label: string }[] = [
   { key: 'received', label: 'Por responder' },
@@ -74,14 +134,20 @@ const inTab = (i: DateInvitation, t: Tab) => {
   return i.status === t
 }
 
-const visible = computed(() => dates.invitations.filter((i) => chat.getById(i.conversationId)))
+const visible = computed(() => dates?.invitations.filter((i) => chat.getById(i.conversationId)) ?? [])
 
-const counts = computed(() => ({
-  received: visible.value.filter((i) => inTab(i, 'received')).length,
-  sent: visible.value.filter((i) => inTab(i, 'sent')).length,
-  accepted: visible.value.filter((i) => inTab(i, 'accepted')).length,
-  declined: visible.value.filter((i) => inTab(i, 'declined')).length
-}))
+function inRemoteTab(invitation: ChatInvitation, selected: Tab) {
+  if (selected === 'received') return invitation.status === 'pending' && invitation.awaitingYourResponse
+  if (selected === 'sent') return invitation.status === 'pending' && !invitation.awaitingYourResponse
+  return invitation.status === selected
+}
+
+const counts = computed(() => Object.fromEntries(tabs.map(({ key }) => [key, useMocks
+  ? visible.value.filter((invitation) => inTab(invitation, key)).length
+  : entries.value.filter(({ invitation }) => inRemoteTab(invitation, key)).length])))
+
+const remoteList = computed(() => entries.value.filter(({ invitation }) => inRemoteTab(invitation, tab.value))
+  .sort((a, b) => Date.parse(a.invitation.startsAt) - Date.parse(b.invitation.startsAt)))
 
 const list = computed(() =>
   visible.value.filter((i) => inTab(i, tab.value)).sort((a, b) => a.startsAt - b.startsAt)
