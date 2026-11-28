@@ -20,7 +20,7 @@
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
-const props = defineProps<{ type: 'message' | 'profile' | 'photo'; targetId: string; label: string; photo?: string }>()
+const props = defineProps<{ type: 'message' | 'profile' | 'photo' | 'review'; targetId: string; label: string; photo?: string }>()
 const auth = useAuthStore()
 const apiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '')
 const dialog = ref<HTMLDialogElement | null>(null)

@@ -45,6 +45,7 @@
       </ul>
 
       <div v-if="reportable" class="report-actions">
+        <ProfileReviews :profile-id="profile.id" />
         <ReportButton type="profile" :target-id="profile.id" label="Reportar perfil" />
         <ReportButton v-if="photoPath" type="photo" :target-id="profile.id" :photo="photoPath" label="Reportar foto" />
       </div>
@@ -59,6 +60,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import ProfileReviews from './ProfileReviews.vue'
 import ReportButton from '../ReportButton.vue'
 import type { DiscoverProfile } from '../../types/discover'
 

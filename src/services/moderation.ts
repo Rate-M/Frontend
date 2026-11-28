@@ -1,6 +1,6 @@
 const apiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api').replace(/\/$/, '')
 
-export const reportTypes = { message: 'Mensaje', photo: 'Foto', profile: 'Perfil' } as const
+export const reportTypes = { review: 'Reseña', message: 'Mensaje', photo: 'Foto', profile: 'Perfil' } as const
 export const reportStatuses = { pending: 'Pendiente', in_review: 'En revisión', resolved: 'Resuelto' } as const
 export type ReportType = keyof typeof reportTypes
 export type ReportStatus = keyof typeof reportStatuses
@@ -19,7 +19,7 @@ export interface ReportRow {
 }
 
 export interface ReportDetail extends ReportRow {
-  content: { text?: string; photo?: string; name?: string; bio?: string } | null
+  content: { rating?: number; text?: string; photo?: string; name?: string; bio?: string } | null
   audit: { actor: string; at: string; status: ReportStatus; note: string }[]
 }
 
