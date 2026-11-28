@@ -42,3 +42,17 @@ export function listInvitations(matchId: string, token: string, signal: AbortSig
 export function respondToInvitation(matchId: string, token: string, signal: AbortSignal, id: string, body: InvitationResponse) {
   return request<ChatInvitation>(matchId, token, signal, id, body)
 }
+
+export async function createInvitation(
+  matchId: string, token: string, payload: { placeId: string; startsAt: string; note: string },
+) {
+  const response = await fetch(apiUrl + '/matches/' + encodeURIComponent(matchId) + '/invitations', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    const result = await response.json().catch(() => null)
+    throw new InvitationError(result?.message ?? 'No pudimos enviar la invitación.', response.status)
+  }
+}
