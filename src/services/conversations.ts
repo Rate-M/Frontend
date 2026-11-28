@@ -84,3 +84,14 @@ export async function loadHistory(token: string, userId: string, matchId: string
   )
   return page.messages.map((message) => messageFromApi(message, userId)).reverse()
 }
+
+export async function deleteMatch(token: string, matchId: string) {
+  const response = await fetch(apiUrl + '/matches/' + encodeURIComponent(matchId), {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + token },
+  })
+  if (!response.ok && response.status !== 404) {
+    const data = await response.json().catch(() => null)
+    throw new Error(data?.message ?? 'No pudimos deshacer el match.')
+  }
+}

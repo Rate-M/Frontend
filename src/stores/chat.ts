@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { createMockConversations } from '../types/chat'
 import type { Conversation } from '../types/chat'
 import { computeStreak } from '../utils/streak'
-import { loadConversations, loadHistory } from '../services/conversations'
+import { deleteMatch, loadConversations, loadHistory } from '../services/conversations'
 import { useAuthStore } from './auth'
 
 const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
@@ -128,13 +128,19 @@ export const useChatStore = defineStore('chat', () => {
     if (c.online) simulateReply(id)
   }
 
-  const unmatch = (id: string) => {
-    if (!useMocks) return
+  const unmatch = async (id: string) => {
     const c = getById(id)
-    if (!c) return
+    if (!c) return false
+    if (!useMocks) {
+      const token = auth.token
+      if (!token) throw new Error('Inicia sesión para deshacer el match.')
+      await deleteMatch(token, id)
+      if (token !== auth.token) return false
+    }
     conversations.value = conversations.value.filter((x) => x.id !== id)
     if (typingId.value === id) typingId.value = null
     setNotice(`Deshiciste el match con ${c.name}`)
+    return true
   }
 
   return {

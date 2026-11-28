@@ -24,7 +24,7 @@
           </div>
         </div>
 
-        <div v-if="store.useMocks" class="menu-wrap">
+        <div class="menu-wrap">
           <button
             type="button"
             class="icon-btn"
@@ -103,7 +103,7 @@
         </button>
       </form>
 
-      <UnmatchModal v-if="confirming" :name="conv.name" @cancel="confirming = false" @confirm="doUnmatch" />
+      <UnmatchModal v-if="confirming" :name="conv.name" :loading="unmatching" :error="unmatchError" @cancel="confirming = false" @confirm="doUnmatch" />
     </div>
 
     <div v-else class="not-found">
@@ -146,6 +146,8 @@ const text = ref('')
 const listEl = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
 const confirming = ref(false)
+const unmatching = ref(false)
+const unmatchError = ref('')
 
 const statusText = computed(() => {
   if (typing.value) return 'Escribiendo...'
@@ -200,15 +202,25 @@ const send = async () => {
 
 const askUnmatch = () => {
   menuOpen.value = false
+  unmatchError.value = ''
   confirming.value = true
 }
 
 const doUnmatch = async () => {
   const id = conv.value?.id
-  if (!id) return
-  confirming.value = false
-  await router.replace('/chats')
-  store.unmatch(id)
+  if (!id || unmatching.value) return
+  unmatching.value = true
+  unmatchError.value = ''
+  try {
+    if (await store.unmatch(id) && route.params.id === id) {
+      confirming.value = false
+      await router.replace('/chats')
+    }
+  } catch (error) {
+    unmatchError.value = error instanceof Error ? error.message : 'No pudimos deshacer el match.'
+  } finally {
+    unmatching.value = false
+  }
 }
 
 watch(
