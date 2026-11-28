@@ -5,8 +5,8 @@
       <span class="support-label">Soporte</span>
       <nav aria-label="Soporte">
         <button v-for="item in navigation" :key="item.label" type="button"
-          :class="{ selected: item.type === selectedType && !item.unavailable }"
-          :disabled="item.unavailable" @click="selectType(item.type)">
+          :class="{ selected: (item.section ? section === item.section : section === 'reports' && item.type === selectedType) && !item.unavailable }"
+          :disabled="item.unavailable" @click="navigate(item)">
           <img :src="item.icon" alt="" /><span>{{ item.label }}</span>
           <span v-if="item.label === 'Reportes' && result">{{ result.counts.pending }}</span>
           <span v-if="item.type && result">{{ result.typeCounts[item.type] }}</span>
@@ -16,6 +16,8 @@
     </aside>
 
     <main class="workspace">
+      <SupportOperations v-if="section !== 'reports'" :key="section" :section="section" />
+      <template v-else>
       <header class="header">
         <div>
           <h1>Reportes</h1>
@@ -77,6 +79,7 @@
         <span>Página {{ page }}</span>
         <button type="button" :disabled="!result?.nextPage || loading" @click="page++">Siguiente</button>
       </nav>
+      </template>
     </main>
 
     <dialog ref="dialog" aria-labelledby="report-title" @close="closeReport">
@@ -112,6 +115,7 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import SupportOperations from '../components/SupportOperations.vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { getReport, listReports, reportPhotoUrl, reportStatuses, reportTypes, updateReport } from '../services/moderation'
@@ -130,11 +134,14 @@ import normalIcon from '../assets/support/normal.svg'
 
 const router = useRouter()
 const auth = useAuthStore()
-const navigation: { label: string; icon: string; type: ReportType | ''; unavailable?: boolean }[] = [
+type OperationsSection = 'places' | 'users' | 'verifications' | 'activity'
+type NavigationItem = { label: string; icon: string; type: ReportType | ''; unavailable?: boolean; section?: OperationsSection }
+const section = ref<'reports' | OperationsSection>('reports')
+const navigation: NavigationItem[] = [
   { label: 'Reportes', icon: reportsIcon, type: '' }, { label: 'Reseñas', icon: reviewsIcon, type: '', unavailable: true },
-  { label: 'Mensajes', icon: messagesIcon, type: 'message' }, { label: 'Lugares', icon: placesIcon, type: '', unavailable: true },
-  { label: 'Usuarios', icon: usersIcon, type: '', unavailable: true }, { label: 'Verificaciones', icon: verificationIcon, type: '', unavailable: true },
-  { label: 'Registro de actividad', icon: activityIcon, type: '', unavailable: true },
+  { label: 'Mensajes', icon: messagesIcon, type: 'message' }, { label: 'Lugares', icon: placesIcon, type: '', section: 'places' },
+  { label: 'Usuarios', icon: usersIcon, type: '', section: 'users' }, { label: 'Verificaciones', icon: verificationIcon, type: '', section: 'verifications' },
+  { label: 'Registro de actividad', icon: activityIcon, type: '', section: 'activity' },
 ]
 const priorities: Record<number, string> = { 1: 'Baja', 2: 'Media', 3: 'Alta' }
 const result = ref<ReportsPage | null>(null)
@@ -158,6 +165,10 @@ const totalLabel = computed(() => result.value ? ' · ' + Object.values(result.v
 const formatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'short', timeStyle: 'short' })
 const date = (value: string) => formatter.format(new Date(value))
 const selectType = (type: ReportType | '') => { selectedType.value = type; page.value = 1 }
+const navigate = (item: NavigationItem) => {
+  section.value = item.section ?? 'reports'
+  if (!item.section) selectType(item.type)
+}
 const search = () => { query.value = input.value.trim(); page.value = 1 }
 const signOut = () => { auth.logout(); void router.replace('/login') }
 
