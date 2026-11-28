@@ -18,11 +18,13 @@
         <button v-else type="button" :disabled="busy" @click="manual">Confirmo que asistí a la cita</button>
       </template>
     </template>
+    <DateReview v-if="confirmation?.status === 'confirmed'" :match-id="matchId" :invitation-id="invitationId" />
     <button type="button" :disabled="busy" @click="refresh">Actualizar asistencia</button>
   </div>
 </template>
 
 <script setup lang="ts">
+import DateReview from './DateReview.vue'
 import { ref, watch } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import { formatDateTime } from '../../utils/dateFormat'

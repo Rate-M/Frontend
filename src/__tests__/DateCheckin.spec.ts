@@ -15,7 +15,7 @@ it('permite confirmar manualmente y espera la confirmación de la otra persona',
     .mockResolvedValueOnce(Response.json({ status: 'failed', manual: { available: true, me: true } }))
     .mockResolvedValueOnce(Response.json({ status: 'confirmed', confirmationMethod: 'manual' }))
   vi.stubGlobal('fetch', request)
-  const view = mount(DateCheckin, { props: { matchId: 'match', invitationId: 'date' }, global: { plugins: [pinia] } })
+  const view = mount(DateCheckin, { props: { matchId: 'match', invitationId: 'date' }, global: { plugins: [pinia], stubs: ['DateReview'] } })
   try {
     await flushPromises()
     await view.get('button').trigger('click')
