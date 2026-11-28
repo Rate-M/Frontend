@@ -42,7 +42,7 @@
         <p class="counter">Perfil {{ currentIndex + 1 }} de {{ profiles.length }}</p>
 
         <div class="stage" :class="{ 'leave-like': leaving === 'like', 'leave-pass': leaving === 'pass' }">
-          <ProfileCard :key="current.id" :profile="current" :stamp="leaving" />
+          <ProfileCard :key="current.id" :profile="current" :stamp="leaving" :reportable="!useMocks" />
         </div>
 
         <div class="actions">

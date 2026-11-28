@@ -44,6 +44,10 @@
         </li>
       </ul>
 
+      <div v-if="reportable" class="report-actions">
+        <ReportButton type="profile" :target-id="profile.id" label="Reportar perfil" />
+        <ReportButton v-if="photoPath" type="photo" :target-id="profile.id" :photo="photoPath" label="Reportar foto" />
+      </div>
       <p class="bio">{{ profile.bio }}</p>
 
       <ul class="chips" aria-label="Intereses">
@@ -54,15 +58,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import ReportButton from '../ReportButton.vue'
 import type { DiscoverProfile } from '../../types/discover'
 
 const props = defineProps<{
   profile: DiscoverProfile
+  reportable?: boolean
   stamp?: 'like' | 'pass' | null
 }>()
 
 const photoIndex = ref(0)
+const photoPath = computed(() => {
+  const url = props.profile.photos[photoIndex.value]
+  if (!url) return ''
+  const path = new URL(url, window.location.origin).pathname
+  return path.startsWith('/uploads/profiles/') ? path : ''
+})
 
 const next = () => {
   if (photoIndex.value < props.profile.photos.length - 1) photoIndex.value++
@@ -73,6 +85,7 @@ const prev = () => {
 </script>
 
 <style scoped>
+.report-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-block: 10px; }
 .pcard {
   background: var(--rm-bg);
   border-radius: 28px;

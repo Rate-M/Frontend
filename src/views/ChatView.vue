@@ -69,6 +69,7 @@
         <div v-for="m in conv.messages" :key="m.id" class="row" :class="m.from">
           <div class="bubble">
             <p>{{ m.text }}</p>
+            <ReportButton v-if="!store.useMocks && m.from === 'them'" type="message" :target-id="m.id" label="Reportar mensaje" />
             <span class="meta">
               {{ formatHour(m.sentAt) }}
               <svg v-if="m.from === 'me'" class="tick" role="img" :aria-label="isRead(m) ? 'Leído' : 'Enviado'" :class="{ read: isRead(m) }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -117,6 +118,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ReportButton from '../components/ReportButton.vue'
 import UnmatchModal from '../components/chat/UnmatchModal.vue'
 import StreakBanner from '../components/chat/StreakBanner.vue'
 import ChatInvitations from '../components/dates/ChatInvitations.vue'
