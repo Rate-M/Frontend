@@ -193,6 +193,7 @@ const labelFrom = (map: Record<string, string>, key: string) => map[key] ?? capi
 
 const ageFrom = (birthDate: string) => {
   const [year, month, day] = birthDate.split('-').map(Number)
+  if (!year || !month || !day) return 0
   const today = new Date()
   let years = today.getFullYear() - year
   const beforeBirthday =

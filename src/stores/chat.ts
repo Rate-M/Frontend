@@ -14,7 +14,7 @@ const REPLIES = [
   'Suena perfecto 😊',
   'Cuéntame más',
   'Ay, qué lindo, gracias'
-]
+] as const
 
 const lastTs = (c: Conversation) => c.messages[c.messages.length - 1]?.sentAt ?? 0
 
@@ -106,7 +106,7 @@ export const useChatStore = defineStore('chat', () => {
       c.messages.push({
         id: `m-${Date.now()}`,
         from: 'them',
-        text: REPLIES[Math.floor(Math.random() * REPLIES.length)],
+        text: REPLIES[Math.floor(Math.random() * REPLIES.length)] ?? REPLIES[0],
         sentAt: Date.now()
       })
     }, 2300)

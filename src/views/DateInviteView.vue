@@ -224,6 +224,7 @@ const startsAt = computed(() => {
   const d = days.find((x) => x.key === dayKey.value)
   if (!d || !time.value) return 0
   const [h, m] = time.value.split(':').map(Number)
+  if (h === undefined || m === undefined) return 0
   const start = new Date(d.date)
   start.setHours(h, m, 0, 0)
   return start.getTime()

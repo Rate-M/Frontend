@@ -3,8 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import { useVerificationStore } from '../stores/verification'
 
 export const LOGIN_PATH = '/login'
-export const IDENTITY_PATH = '/verificacion' 
-export const STATUS_PATH = '/verificacion/estado'
+export const IDENTITY_PATH = '/verificacion'
 
 export async function verificationGuard(
   to: RouteLocationNormalized
@@ -29,9 +28,7 @@ export async function verificationGuard(
 
     if (verification.status === 'approved') return true
 
-    if (verification.status === 'idle') return { path: IDENTITY_PATH }
-
-    return { path: STATUS_PATH }
+    return { path: IDENTITY_PATH }
   }
 
   return true
