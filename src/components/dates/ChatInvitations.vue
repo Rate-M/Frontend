@@ -19,11 +19,13 @@
         </form>
       </template>
       <p v-else-if="invitation.status === 'pending'">Esperando respuesta de la otra persona.</p>
+      <DateCheckin v-if="invitation.status === 'accepted'" :key="invitation.id" :match-id="matchId" :invitation-id="invitation.id" />
     </article>
   </section>
 </template>
 
 <script setup lang="ts">
+import DateCheckin from './DateCheckin.vue'
 import { ref, watch } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import { formatDateTime } from '../../utils/dateFormat'
