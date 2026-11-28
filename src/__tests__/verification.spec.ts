@@ -23,6 +23,7 @@ function mockFetch(status: string | null, httpCode = 200) {
     'fetch',
     vi.fn().mockResolvedValue({
       status: httpCode,
+      ok: httpCode >= 200 && httpCode < 300,
       json: async () => ({ verificationStatus: status })
     })
   )

@@ -1,14 +1,13 @@
 <template>
   <div id="app">
-    <router-view />
+    <RouterView />
+    <VerificationToast />
   </div>
 </template>
 
 <script setup lang="ts">
+import VerificationToast from './components/VerificationToast.vue'
 </script>
-
-<VerificationToast />
-<RouterView />
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap');

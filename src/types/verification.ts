@@ -34,4 +34,4 @@ export const DOCUMENT_OPTIONS: DocumentOption[] = [
 
 export type CaptureSlot = 'front' | 'back' | 'selfie'
 
-export type VerificationStatus = 'idle' | 'approved' | 'rejected'
+export type VerificationStatus = 'idle' | 'pending' | 'approved' | 'rejected'

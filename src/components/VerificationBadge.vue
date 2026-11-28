@@ -4,7 +4,6 @@ import StatusIcon from './StatusIcon.vue'
 import { useVerificationStore } from '../stores/verification'
 import type { VerificationStatus } from '../types/verification'
 
-<VerificationBadge status-override="approved" />
 const props = defineProps<{ statusOverride?: VerificationStatus }>()
 
 const store = useVerificationStore()

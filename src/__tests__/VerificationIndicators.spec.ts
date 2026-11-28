@@ -1,13 +1,14 @@
+// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import VerificationBadge from '../VerificationBadge.vue'
-import VerificationToast from '../VerificationToast.vue'
-import { useVerificationStore } from '../../stores/verification'
-import { getVerificationStatus } from '../../services/verification.service'
+import VerificationBadge from '../components/VerificationBadge.vue'
+import VerificationToast from '../components/VerificationToast.vue'
+import { useVerificationStore } from '../stores/verification'
+import { getVerificationStatus } from '../services/verification.services'
 
-vi.mock('../../services/verification.service', () => ({
+vi.mock('../services/verification.services', () => ({
   getVerificationStatus: vi.fn(),
   UnauthorizedError: class UnauthorizedError extends Error {}
 }))

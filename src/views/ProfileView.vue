@@ -505,6 +505,7 @@ const todayIso = (() => {
 
 const ageFrom = (birthDate: string) => {
   const [year, month, day] = birthDate.split('-').map(Number)
+  if (!year || !month || !day) return 0
   const today = new Date()
   let years = today.getFullYear() - year
   const beforeBirthday =
@@ -516,6 +517,7 @@ const ageFrom = (birthDate: string) => {
 const formatDate = (birthDate: string) => {
   if (!birthDate) return ''
   const [year, month, day] = birthDate.split('-').map(Number)
+  if (!year || !month || !day) return ''
   return new Date(year, month - 1, day).toLocaleDateString('es-MX', {
     day: 'numeric',
     month: 'long',
@@ -769,7 +771,7 @@ const removePhoto = (id: string) => {
   if (target.local) URL.revokeObjectURL(target.url)
 
   p.photos = p.photos.filter((photo) => photo.id !== id)
-  if (!p.photos.some((photo) => photo.isPrimary)) p.photos[0].isPrimary = true
+  if (p.photos[0] && !p.photos.some((photo) => photo.isPrimary)) p.photos[0].isPrimary = true
   showNotice('Foto eliminada')
 }
 

@@ -62,7 +62,7 @@ export const createMockConversations = (): Conversation[] => {
   ]
 
   const sofia: ChatMessage[] = Array.from({ length: 9 }, (_, i) => {
-    const [them, me] = SOFIA_PAIRS[i % SOFIA_PAIRS.length]
+    const [them, me] = SOFIA_PAIRS[i % SOFIA_PAIRS.length] ?? ['Hola', 'Hola']
     return exchange('c4', 8 - i, them, me)
   }).flat()
 

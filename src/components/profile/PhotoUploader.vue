@@ -113,7 +113,7 @@ const onFiles = (event: Event) => {
     localError.value = `Solo puedes tener ${LIMITS.maxPhotos} fotos`
   }
 
-  if (next.length && !next.some((p) => p.isPrimary)) next[0].isPrimary = true
+  if (next[0] && !next.some((p) => p.isPrimary)) next[0].isPrimary = true
 
   emit('update:modelValue', next)
   input.value = '' // permite volver a elegir el mismo archivo
@@ -128,7 +128,7 @@ const removePhoto = (id: string) => {
   if (removed?.file) URL.revokeObjectURL(removed.url)
 
   const next = props.modelValue.filter((p) => p.id !== id).map((p) => ({ ...p }))
-  if (next.length && !next.some((p) => p.isPrimary)) next[0].isPrimary = true
+  if (next[0] && !next.some((p) => p.isPrimary)) next[0].isPrimary = true
 
   localError.value = ''
   emit('update:modelValue', next)
