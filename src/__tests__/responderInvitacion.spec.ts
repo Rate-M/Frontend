@@ -64,7 +64,7 @@ describe('Componente ChatInvitations', () => {
     vi.stubGlobal('fetch', fetchMock)
     const pinia = createPinia()
     useAuthStore(pinia).login('jwt', { id: 'yo' })
-    const wrapper = mount(ChatInvitations, { props: { matchId: 'match' }, global: { plugins: [pinia] } })
+    const wrapper = mount(ChatInvitations, { props: { matchId: 'match' }, global: { plugins: [pinia], stubs: ['DateCheckin'] } })
     return { wrapper, fetchMock }
   }
   const button = (w: ReturnType<typeof mount>, text: string) => w.findAll('button').find((b) => b.text() === text)!
