@@ -56,7 +56,7 @@
         </div>
       </header>
 
-            <StreakBanner v-if="store.useMocks" :conversation-id="conv.id" />
+      <StreakBanner :conversation-id="conv.id" />
                   <DateInvitations v-if="store.useMocks" :conversation-id="conv.id" />
       <div ref="listEl" class="messages" aria-live="polite">
         <div v-if="!conv.messages.length" class="icebreaker">

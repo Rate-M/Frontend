@@ -26,13 +26,13 @@ function messagesOn(daysAgo: number, ...senders: ChatMessage['from'][]): ChatMes
   }))
 }
 
-function renderBanner(messages: ChatMessage[], exists = true) {
+function renderBanner(messages: ChatMessage[], exists = true, streakDays?: number) {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(now)
   const pinia = createPinia()
   const router = createRouter({ history: createMemoryHistory(), routes: [] })
   useChatStore(pinia).conversations = exists
-    ? [{ id: conversationId, name: 'Alex', photo: '', online: false, unread: 0, messages }]
+    ? [{ id: conversationId, name: 'Alex', photo: '', online: false, unread: 0, messages, streakDays }]
     : []
   return mount(StreakBanner, {
     props: { conversationId },
@@ -89,6 +89,14 @@ describe('Indicador de racha del chat', () => {
     const banner = renderBanner([0, 1, 2, 3, 4].flatMap((day) => messagesOn(day, 'me', 'them')))
     expect(banner.get('.invite-btn').attributes('disabled')).toBeDefined()
     expect(banner.text()).toContain('No se pudo verificar la racha mínima')
+    banner.unmount()
+  })
+
+  it('muestra la racha guardada aunque el historial disponible sea limitado', () => {
+    const banner = renderBanner(messagesOn(0, 'me'), true, 4)
+    expect(banner.text()).toContain('4 días seguidos')
+    expect(banner.text()).toContain('La racha se actualiza al cerrar cada día')
+    expect(banner.find('.invite-btn').exists()).toBe(false)
     banner.unmount()
   })
 
