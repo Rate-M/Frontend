@@ -13,6 +13,8 @@
 
       <section class="block">
         <h2 class="label">¿A quién invitas?</h2>
+        <p v-if="chat.loading" role="status">Cargando matches…</p>
+        <p v-else-if="chat.error" role="alert">{{ chat.error }}</p>
         <ul class="people">
           <li v-for="c in chat.conversations" :key="c.id">
             <button
@@ -41,15 +43,26 @@
       <section class="block">
         <div class="label-row">
           <h2 class="label">Lugar</h2>
-          <router-link to="/lugares" class="map-link">Ver en el mapa</router-link>
+          <router-link v-if="chat.useMocks" to="/lugares" class="map-link">Ver en el mapa</router-link>
         </div>
+        <label v-if="!chat.useMocks">
+          Categoría
+          <select v-model="category" :disabled="sending">
+            <option value="cafe">Cafeterías</option>
+            <option value="parque">Parques</option>
+            <option value="restaurante">Restaurantes</option>
+          </select>
+        </label>
+        <p v-if="loadingPlaces" role="status">Buscando lugares cercanos…</p>
+        <p v-else-if="placeError" role="alert">{{ placeError }}</p>
+        <p v-else-if="!sortedPlaces.length">No encontramos lugares en esta categoría.</p>
         <ul class="places">
           <li v-for="p in sortedPlaces" :key="p.id">
             <button type="button" class="place" :class="{ active: placeId === p.id }" @click="placeId = p.id">
               <span class="place-icon"><CategoryIcon :category="p.category" :size="18" /></span>
               <span class="place-text">
                 <strong>{{ p.name }}</strong>
-                <small>{{ categoryLabels[p.category] }} · a {{ p.distanceKm }} km</small>
+                <small>{{ categoryLabels[p.category] }}<template v-if="p.address"> · {{ p.address }}</template></small>
               </span>
               <svg v-if="placeId === p.id" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M5 12.5l4.500 4.500L19 7.500" />
@@ -102,15 +115,21 @@
         el <strong>{{ formatDateTime(startsAt) }}</strong>.
       </p>
 
-      <button type="button" class="btn-primary" :disabled="!ready" @click="submit">Enviar invitación</button>
+      <p v-if="sendError" role="alert">{{ sendError }}</p>
+      <button type="button" class="btn-primary" :disabled="!ready || sending" @click="submit">
+        {{ sending ? 'Enviando…' : 'Enviar invitación' }}
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import CategoryIcon from '../components/places/CategoryIcon.vue'
+import { useAuthStore } from '../stores/auth'
+import { createInvitation } from '../services/dateInvitations'
+import { loadDatePlaces, type DatePlace } from '../services/datePlaces'
 import { useChatStore } from '../stores/chat'
 import { useDatesStore } from '../stores/dates'
 import { places, categoryLabels, getPlace } from '../types/places'
@@ -123,24 +142,57 @@ const route = useRoute()
 const router = useRouter()
 const chat = useChatStore()
 const dates = useDatesStore()
+const auth = useAuthStore()
+const sending = ref(false)
+const sendError = ref('')
+const category = ref<DatePlace['category']>('cafe')
+const nearbyPlaces = ref<DatePlace[]>([])
+const loadingPlaces = ref(false)
+const placeError = ref('')
+
+onMounted(() => { void chat.refresh() })
+
 
 const { threshold, loading } = useStreakThreshold()
 
-const streakDays = (c: Conversation) => computeStreak(c.messages).days
+const streakDays = (c: Conversation) => c.streakDays ?? computeStreak(c.messages).days
 const isUnlocked = (c: Conversation) => threshold.value !== null && streakDays(c) >= threshold.value
 
 const qCon = typeof route.query.con === 'string' ? route.query.con : ''
 const qLugar = typeof route.query.lugar === 'string' ? route.query.lugar : ''
 
-const initialConv = chat.getById(qCon)
 const convId = ref('')
-watch(threshold, () => {
+watch([threshold, () => chat.getById(qCon)], () => {
+  const initialConv = chat.getById(qCon)
   if (!convId.value && initialConv && isUnlocked(initialConv)) convId.value = initialConv.id
 }, { immediate: true })
-const placeId = ref(getPlace(qLugar)?.id ?? '')
+const placeId = ref(chat.useMocks ? getPlace(qLugar)?.id ?? '' : '')
 const dayKey = ref('')
 const time = ref('')
 const note = ref('')
+
+watch([category, () => auth.token], async ([selectedCategory, token], _, onCleanup) => {
+  if (chat.useMocks) return
+  nearbyPlaces.value = []
+  placeId.value = ''
+  placeError.value = ''
+  loadingPlaces.value = !!token
+  if (!token) return
+
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  try {
+    const nearby = await loadDatePlaces(token, selectedCategory, controller.signal)
+    if (!controller.signal.aborted) {
+      nearbyPlaces.value = nearby
+      if (nearby.some((place) => place.id === qLugar)) placeId.value = qLugar
+    }
+  } catch (error) {
+    if (!controller.signal.aborted) placeError.value = error instanceof Error ? error.message : 'No pudimos consultar lugares.'
+  } finally {
+    if (!controller.signal.aborted) loadingPlaces.value = false
+  }
+}, { immediate: true })
 
 interface DayOption {
   key: string
@@ -161,10 +213,12 @@ const days: DayOption[] = Array.from({ length: 7 }, (_, i) => {
 
 const times = ['12:00', '14:00', '16:00', '18:00', '19:00', '20:00', '21:00', '22:00']
 
-const sortedPlaces = computed(() => [...places].sort((a, b) => a.distanceKm - b.distanceKm))
+const sortedPlaces = computed(() => chat.useMocks
+  ? [...places].sort((a, b) => a.distanceKm - b.distanceKm)
+  : nearbyPlaces.value)
 
 const person = computed(() => chat.getById(convId.value))
-const place = computed(() => getPlace(placeId.value))
+const place = computed(() => sortedPlaces.value.find((entry) => entry.id === placeId.value))
 
 const startsAt = computed(() => {
   const d = days.find((x) => x.key === dayKey.value)
@@ -177,18 +231,28 @@ const startsAt = computed(() => {
 
 const ready = computed(() => !!person.value && isUnlocked(person.value) && !!place.value && startsAt.value > 0)
 
-const submit = () => {
+const submit = async () => {
   const p = person.value
   const pl = place.value
-  if (!ready.value || !p || !pl) return
+  if (!ready.value || !p || !pl || sending.value) return
 
-  dates.send({
-    conversationId: p.id,
-    placeId: pl.id,
-    startsAt: startsAt.value,
-    note: note.value
-  })
-  router.replace(`/chat/${p.id}`)
+  sendError.value = ''
+  sending.value = true
+  try {
+    if (chat.useMocks) {
+      dates.send({ conversationId: p.id, placeId: pl.id, startsAt: startsAt.value, note: note.value })
+    } else {
+      if (!auth.token) throw new Error('Inicia sesión para enviar una invitación.')
+      await createInvitation(p.id, auth.token, {
+        placeId: pl.id, startsAt: new Date(startsAt.value).toISOString(), note: note.value,
+      })
+    }
+    await router.replace('/chat/' + encodeURIComponent(p.id))
+  } catch (error) {
+    sendError.value = error instanceof Error ? error.message : 'No pudimos enviar la invitación.'
+  } finally {
+    sending.value = false
+  }
 }
 </script>
 

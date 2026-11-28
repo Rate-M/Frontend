@@ -15,7 +15,7 @@
       <span v-if="streak.days > 0" class="count">{{ streak.days }}</span>
     </div>
 
-    <div v-if="persistedDays === undefined" class="invite">
+    <div class="invite">
       <div
         v-if="threshold !== null"
         class="progress"

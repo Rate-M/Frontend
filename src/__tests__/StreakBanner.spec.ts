@@ -96,7 +96,7 @@ describe('Indicador de racha del chat', () => {
     const banner = renderBanner(messagesOn(0, 'me'), true, 4)
     expect(banner.text()).toContain('4 días seguidos')
     expect(banner.text()).toContain('La racha se actualiza al cerrar cada día')
-    expect(banner.find('.invite-btn').exists()).toBe(false)
+    expect(banner.get('.invite-btn').attributes('disabled')).toBeUndefined()
     banner.unmount()
   })
 
